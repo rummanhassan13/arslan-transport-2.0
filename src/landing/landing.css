@@ -1,0 +1,204 @@
+/* Mist palette variables extended for landing page */
+@import "tailwindcss";
+@source "../**/*.{js,ts,jsx,tsx}";
+@source "../../index.html";
+
+:root {
+  --bg: #ffffff;
+  --surface: #E8F1FA; /* Distinct soft blue card surface */
+  --surface-soft: #D8E5F3; /* Slightly more saturated soft blue for active elements */
+  --ink: #0F172A;
+  --ink-2: #334155;
+  --ink-3: #64748B;
+  --line: #CBD8E6;
+  --line-soft: #E1E8F0;
+  --accent: #2563EB;
+  --accent-strong: #1D4ED8;
+  --accent-soft: #DBEAFE;
+  --positive: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --hero-grad: linear-gradient(180deg, #E2EDFC 0%, #EFF4FC 100%);
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+/* Base button styles to match app */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 8px; font-size: 13px; font-weight: 600;
+  white-space: nowrap; min-height: 34px; padding: 0 16px;
+  background: var(--ink); border: 1px solid var(--ink); color: #fff;
+  transition: background 140ms, transform 140ms;
+}
+.btn-primary:hover { background: #1a2330; }
+.btn-primary:active { transform: scale(0.97); }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 8px; font-size: 13px; font-weight: 600;
+  white-space: nowrap; min-height: 34px; padding: 0 16px;
+  background: #fff; border: 1px solid var(--line); color: var(--ink-2);
+  transition: background 140ms, border-color 140ms, color 140ms, transform 140ms;
+}
+.btn-ghost:hover { color: var(--ink); border-color: #cfd6e0; }
+.btn-ghost:active { transform: scale(0.97); }
+
+
+/* Animations */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  opacity: 0;
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-right {
+  opacity: 0;
+  animation: slideInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+/* Stagger delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Blob gradient background for hero */
+.hero-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 800px;
+  background: radial-gradient(circle at 15% 50%, rgba(104, 134, 168, 0.08), transparent 25%),
+              radial-gradient(circle at 85% 30%, rgba(104, 134, 168, 0.12), transparent 25%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Sticky Header Blur */
+.header-scrolled {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: saturate(140%) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Section visibility classes */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Smooth anchor scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-10px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite alternate;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   Design system alignment: Grid background and Colored cards
+   ───────────────────────────────────────────────────────────────────── */
+
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: linear-gradient(to right, rgba(37, 99, 235, 0.07) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(37, 99, 235, 0.07) 1px, transparent 1px);
+}
+
+/* Let the continuous grid check pattern shine through all main sections */
+#landing-root section:not(.dark-section),
+#landing-root footer:not(.dark-section) {
+  background-color: transparent !important;
+}
+
+.dark-section {
+  background-color: #0e1116 !important;
+  background-size: 40px 40px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px) !important;
+}
+
+/* Map white cards to the new premium soft blue card surface */
+#landing-root .bg-white,
+#landing-root .bg-\[\#f5f7fa\] {
+  background-color: var(--surface) !important;
+}
+
+
+
+/* Keep sticky header blurred but beautifully translucent */
+#landing-root header {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+#landing-root header.header-scrolled {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: saturate(140%) blur(14px) !important;
+}

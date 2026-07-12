@@ -1,0 +1,13 @@
+node_modules/
+dist/
+test-results/
+.eslintcache
+*.log
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+.codex/
+.env
+.env.local
+.env.*.local
+supabase/.temp/
