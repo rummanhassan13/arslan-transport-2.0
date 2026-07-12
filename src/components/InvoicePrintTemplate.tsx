@@ -3,7 +3,7 @@ import arslanLogo from "../assets/invoice-template/image3.jpeg";
 import trnBadge from "../assets/invoice-template/image7.png";
 import signatureImage from "../assets/invoice-template/image8.jpeg";
 import stampImage from "../assets/invoice-template/image9.jpeg";
-import type { Invoice, InvoiceItem, Shipment, ShipmentExpense } from "../types/domain";
+import type { Invoice, InvoiceItem, Shipment, ShipmentDriverAssignment, ShipmentExpense } from "../types/domain";
 import { getExpenseClientBillAmount } from "../utils/calculations";
 
 type InvoicePrintTemplateProps = {
@@ -17,6 +17,12 @@ type TemplateRow = {
   description: string;
   unitPrice: number;
   amount: number;
+};
+
+type DriverDetail = {
+  driverName: string;
+  vehicleNo: string;
+  truckType: string;
 };
 
 const EXPENSE_LABELS: Record<string, string> = {
@@ -64,6 +70,81 @@ function normalizeDescription(value: string | undefined | null) {
   return String(value || "").trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ").toUpperCase();
 }
 
+function textValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function snapshotAssignments(value: unknown): ShipmentDriverAssignment[] {
+  return Array.isArray(value) ? (value.filter(Boolean) as ShipmentDriverAssignment[]) : [];
+}
+
+function detailFromAssignment(assignment: ShipmentDriverAssignment | Record<string, unknown>): DriverDetail | null {
+  const record = assignment as Record<string, unknown>;
+  const driverName = textValue(record.driverName);
+  const vehicleNo = textValue(record.vehicleNo) || textValue(record.vehicleNumber);
+  const truckType = textValue(record.truckType) || textValue(record.truckTypeName);
+
+  if (!driverName && !vehicleNo && !truckType) return null;
+  return { driverName, vehicleNo, truckType };
+}
+
+function driverDetailsFromAssignments(assignments: unknown): DriverDetail[] {
+  return snapshotAssignments(assignments).map(detailFromAssignment).filter((detail): detail is DriverDetail => Boolean(detail));
+}
+
+function driverDetailsFromSnapshot(snapshot: Record<string, unknown> | undefined): DriverDetail[] {
+  if (!snapshot) return [];
+
+  const assignmentDetails = driverDetailsFromAssignments(snapshot.assignments);
+  if (assignmentDetails.length > 0) return assignmentDetails;
+
+  const fallback = detailFromAssignment({
+    driverName: snapshot.driverName,
+    vehicleNo: snapshot.vehicleNo,
+    vehicleNumber: snapshot.vehicleNumber,
+    truckType: snapshot.truckType,
+    truckTypeName: snapshot.truckTypeName,
+  });
+  return fallback ? [fallback] : [];
+}
+
+function shipmentDriverDetails(shipment: Shipment, invoiceRecord?: Invoice, item?: InvoiceItem): DriverDetail[] {
+  const sources: DriverDetail[][] = [
+    driverDetailsFromSnapshot(item?.snapshot),
+    driverDetailsFromSnapshot(invoiceRecord?.shipmentSnapshot),
+    driverDetailsFromAssignments(shipment.assignments),
+    driverDetailsFromSnapshot({
+      driverName: shipment.driverName,
+      vehicleNo: shipment.vehicleNo,
+      truckType: shipment.truckType,
+    }),
+  ];
+
+  return sources.find((details) => details.length > 0) ?? [];
+}
+
+function hasDriverDetails(description: string) {
+  const normalized = description.toLowerCase();
+  return normalized.includes("driver") && (normalized.includes("truck no") || normalized.includes("vehicle"));
+}
+
+function formatDriverDetails(details: DriverDetail[]) {
+  return details.map((detail, index) => {
+    const prefix = details.length > 1 ? `DRIVER ${index + 1} NAME` : "DRIVER NAME";
+    return [
+      `${prefix}: ${detail.driverName || "Not specified"}`,
+      `TRUCK NO: ${detail.vehicleNo || "Not specified"}`,
+      `TYPE OF VEHICLE: ${detail.truckType || "Not specified"}`,
+    ].join("\n");
+  }).join("\n\n");
+}
+
+function withDriverDetails(description: string, details: DriverDetail[]) {
+  const baseDescription = description.trim();
+  if (!details.length || hasDriverDetails(baseDescription)) return baseDescription;
+  return `${baseDescription}\n\n${formatDriverDetails(details)}`;
+}
+
 function expenseDescription(item: InvoiceItem) {
   const category = typeof item.snapshot?.category === "string" ? item.snapshot.category : "";
   const normalizedCategory = category.trim().toLowerCase();
@@ -76,6 +157,7 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
   const loadingPoint = snapshotText(invoiceRecord?.shipmentSnapshot, "loadingPoint", shipment.loadingPoint);
   const destination = invoiceRecord?.destination || snapshotText(invoiceRecord?.shipmentSnapshot, "destination", shipment.destination);
   const transportAmount = invoiceRecord?.subtotal ?? shipment.companyRate;
+  const defaultTransportDescription = `TRIP FROM: ${loadingPoint || "LOADING POINT"} TO ${destination || "DESTINATION"}`;
 
   // Identify all active, billable, invoicable expenses
   const activeExpenses = shipmentExpenses.filter((e) => e.approved && e.clientBillable && e.includedInInvoice && !e.deletedAt);
@@ -89,7 +171,7 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
     if (transportItems.length > 0) {
       transportItems.forEach(item => {
         resolvedRows.push({
-          description: item.description,
+          description: withDriverDetails(item.description || defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord, item)),
           unitPrice: item.unitPrice || item.amount,
           amount: item.amount,
         });
@@ -97,23 +179,15 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
     } else {
       // Legacy fallback
       resolvedRows.push({
-        description: `TRIP FROM: ${loadingPoint || "LOADING POINT"} TO ${destination || "DESTINATION"}`,
+        description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord)),
         unitPrice: transportAmount,
         amount: transportAmount,
       });
     }
   } else {
     // Dynamic generation when no invoiceRecord exists
-    let transportDesc = `TRIP FROM: ${loadingPoint || "LOADING POINT"} TO ${destination || "DESTINATION"}`;
-    if (Array.isArray(shipment.assignments) && shipment.assignments.length > 0) {
-      const driverDetails = shipment.assignments.filter(Boolean).map((a, index) => 
-        `Driver ${index + 1}: ${a?.driverName || "Not specified"}\nTruck No: ${a?.vehicleNo || "Not specified"}\nVehicle Type: ${a?.truckType || "Not specified"}`
-      ).join("\n\n");
-      transportDesc += `\n\n${driverDetails}`;
-    }
-
     resolvedRows.push({
-      description: transportDesc,
+      description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment)),
       unitPrice: transportAmount,
       amount: transportAmount,
     });
@@ -193,10 +267,6 @@ export function InvoicePrintTemplate({ shipment, invoiceRecord, invoiceItems = [
   const invoiceNumber = formatInvoiceNo(invoiceRecord?.invoiceNumber || shipment.invoice);
   const invoiceDate = formatTemplateDate(invoiceRecord?.issueDate || shipment.date);
   const clientName = invoiceRecord?.clientName || snapshotText(invoiceRecord?.clientSnapshot, "name", shipment.customer);
-  const driverName = snapshotText(invoiceRecord?.shipmentSnapshot, "driverName", shipment.driverName);
-  const vehicleNo = snapshotText(invoiceRecord?.shipmentSnapshot, "vehicleNo", shipment.vehicleNo);
-  const truckType = snapshotText(invoiceRecord?.shipmentSnapshot, "truckType", shipment.truckType);
-  const assignments = (invoiceRecord?.shipmentSnapshot?.assignments as import("../types/domain").ShipmentDriverAssignment[] | undefined) || shipment.assignments;
   const rows = buildInvoiceRows(shipment, invoiceRecord, invoiceItems, shipmentExpenses);
   const totalAmount = rows.reduce((sum, row) => sum + row.amount, 0);
 
@@ -268,26 +338,6 @@ export function InvoicePrintTemplate({ shipment, invoiceRecord, invoiceItems = [
                   <td className="num">{formatPlainAmount(row.amount)}</td>
                 </tr>
               ))}
-              {(!Array.isArray(assignments) || assignments.length <= 1) && (
-                <tr className="arslan-vehicle-row">
-                  <td>
-                    <div>
-                      <span>TRUCK NO:</span>
-                      <strong>{assignments?.[0]?.vehicleNo || vehicleNo || "-"}</strong>
-                    </div>
-                    <div>
-                      <span>DRIVER NAME:</span>
-                      <strong>{assignments?.[0]?.driverName || driverName || "-"}</strong>
-                    </div>
-                    <div>
-                      <span>TYPE OF VEHICLE:</span>
-                      <strong>{assignments?.[0]?.truckType || truckType || "-"}</strong>
-                    </div>
-                  </td>
-                  <td />
-                  <td />
-                </tr>
-              )}
             </tbody>
             <tfoot>
               <tr>

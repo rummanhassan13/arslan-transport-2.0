@@ -107,6 +107,7 @@ begin
       'driverId', a.driver_id,
       'driverName', d.name,
       'vehicleId', a.vehicle_id,
+      'vehicleNo', v.vehicle_number,
       'vehicleNumber', v.vehicle_number,
       'truckTypeId', a.truck_type_id,
       'truckType', t.name,

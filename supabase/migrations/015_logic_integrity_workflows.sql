@@ -513,6 +513,7 @@ declare
   v_invoice_id uuid;
   v_invoice_number text;
   v_client_snapshot jsonb;
+  v_assignment_snapshot jsonb;
   v_shipment_snapshot jsonb;
   v_subtotal numeric(12,2);
   v_expense_total numeric(12,2);
@@ -578,6 +579,31 @@ begin
   where c.id = v_shipment.client_id and c.organization_id = p_organization_id;
   v_client_snapshot := coalesce(v_client_snapshot, '{}'::jsonb);
 
+  select coalesce(jsonb_agg(
+    jsonb_build_object(
+      'id', a.id,
+      'driverId', a.driver_id,
+      'driverName', d.name,
+      'vehicleId', a.vehicle_id,
+      'vehicleNo', v.vehicle_number,
+      'vehicleNumber', v.vehicle_number,
+      'truckTypeId', a.truck_type_id,
+      'truckType', t.name,
+      'legOrder', a.leg_order,
+      'fromLocation', a.from_location,
+      'toLocation', a.to_location,
+      'driverRate', a.driver_rate
+    ) order by a.leg_order
+  ), '[]'::jsonb)
+  into v_assignment_snapshot
+  from public.shipment_driver_assignments a
+  left join public.drivers d on d.id = a.driver_id
+  left join public.vehicles v on v.id = a.vehicle_id
+  left join public.truck_types t on t.id = a.truck_type_id
+  where a.organization_id = p_organization_id
+    and a.shipment_id = p_shipment_id
+    and a.deleted_at is null;
+
   v_shipment_snapshot := jsonb_build_object(
     'id', v_shipment.id,
     'shipmentNo', v_shipment.shipment_no,
@@ -586,7 +612,8 @@ begin
     'loadingPoint', v_shipment.loading_point,
     'destination', v_shipment.destination,
     'companyRate', v_shipment.company_rate,
-    'status', v_shipment.status
+    'status', v_shipment.status,
+    'assignments', v_assignment_snapshot
   );
 
   if v_invoice.id is null then
@@ -623,7 +650,7 @@ begin
     p_organization_id, v_invoice_id, 'transport',
     'TRIP FROM: ' || v_shipment.loading_point || ' TO ' || v_shipment.destination,
     1, v_shipment.company_rate, v_shipment.company_rate,
-    jsonb_build_object('shipmentId', v_shipment.id, 'shipmentNo', v_shipment.shipment_no)
+    jsonb_build_object('shipmentId', v_shipment.id, 'shipmentNo', v_shipment.shipment_no, 'assignments', v_assignment_snapshot)
   );
 
   insert into public.invoice_items (

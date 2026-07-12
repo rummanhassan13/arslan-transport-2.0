@@ -66,6 +66,7 @@ function buildDemoInvoices(shipments: Shipment[]): Invoice[] {
         vehicleNo: shipment.vehicleNo,
         truckType: shipment.truckType,
         driverName: shipment.driverName,
+        assignments: shipment.assignments ?? [],
       },
       subtotal,
       expenseTotal,
@@ -107,7 +108,7 @@ function buildDemoInvoiceItems(invoices: Invoice[], shipments: Shipment[]): Invo
       quantity: 1,
       unitPrice: item.amount,
       amount: item.amount,
-      snapshot: { shipmentId: shipment.id },
+      snapshot: { shipmentId: shipment.id, assignments: shipment.assignments ?? [] },
       createdAt: now,
     }));
   });
@@ -262,6 +263,7 @@ export function useInvoices(shipments: Shipment[], expenses: ShipmentExpense[] =
         vehicleNo: shipment.vehicleNo,
         truckType: shipment.truckType,
         driverName: shipment.driverName,
+        assignments: shipment.assignments ?? [],
       };
       const expenseItems = shipmentExpenses
         .filter((expense) => expense.approved && expense.clientBillable && expense.includedInInvoice)
@@ -294,7 +296,7 @@ export function useInvoices(shipments: Shipment[], expenses: ShipmentExpense[] =
           quantity: 1,
           unitPrice: Number(shipment.companyRate) || 0,
           amount: Number(shipment.companyRate) || 0,
-          snapshot: { shipmentId: shipment.id },
+          snapshot: { shipmentId: shipment.id, assignments: shipment.assignments ?? [] },
         }
       ];
 
