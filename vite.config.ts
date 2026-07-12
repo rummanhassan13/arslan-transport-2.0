@@ -7,6 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   build: {
     rollupOptions: {
       input: {
