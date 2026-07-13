@@ -48,8 +48,9 @@ function corsHeaders(req: Request) {
 
   return {
     "access-control-allow-origin": allowedOrigin,
-    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-attachment-response",
     "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-expose-headers": "content-disposition, content-length, content-type",
   };
 }
 
@@ -191,12 +192,39 @@ Deno.serve(async (req) => {
     await assertMembership(supabase, organizationId, user.id);
     await assertShipmentBelongsToOrganization(supabase, organizationId, metadata.shipment_id);
 
+    const returnFile = req.headers.get("x-attachment-response") === "file";
+    const bucketName = required("R2_BUCKET_NAME", "R2_CONFIG_MISSING", "R2 configuration is missing.");
+    if (returnFile) {
+      let fileBytes: Uint8Array;
+      try {
+        const object = await r2Client().send(new GetObjectCommand({
+          Bucket: bucketName,
+          Key: objectKey,
+        }));
+        if (!object.Body) throw new Error("Attachment body is empty.");
+        fileBytes = await object.Body.transformToByteArray();
+      } catch {
+        throw new FunctionError("R2_DOWNLOAD_FAILED", "Unable to load the attachment from storage.", 502);
+      }
+
+      const safeName = metadata.file_name ? metadata.file_name.replace(/["\\]/g, "") : "attachment";
+      return new Response(fileBytes, {
+        status: 200,
+        headers: {
+          "content-type": metadata.file_type || "application/octet-stream",
+          "content-length": String(fileBytes.byteLength),
+          "content-disposition": `inline; filename="${safeName}"`,
+          ...cors,
+        },
+      });
+    }
+
     const expiresAt = new Date(Date.now() + downloadExpirySeconds * 1000).toISOString();
 
     // Enforce Content-Disposition: attachment for non-images
     const isImage = metadata.file_type && ["image/jpeg", "image/png", "image/webp"].includes(metadata.file_type);
     const getObjectParams: any = {
-      Bucket: required("R2_BUCKET_NAME", "R2_CONFIG_MISSING", "R2 configuration is missing."),
+      Bucket: bucketName,
       Key: objectKey,
     };
 

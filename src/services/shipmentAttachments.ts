@@ -381,6 +381,38 @@ export async function uploadShipmentAttachmentFile(
   return { storageKey: body.storageKey };
 }
 
+export async function downloadShipmentAttachmentFile(attachmentId: string): Promise<Blob> {
+  if (env.demoMode) {
+    throw new Error("Document downloads are available only in Supabase + R2 mode.");
+  }
+
+  const response = await fetch(getFunctionUrl("r2-create-download-url"), {
+    method: "POST",
+    headers: {
+      ...(await getFunctionHeaders()),
+      "x-attachment-response": "file",
+    },
+    body: JSON.stringify({
+      attachment_id: attachmentId,
+      table: "shipment_attachments",
+    }),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    let body: EdgeFunctionErrorBody = {};
+    try {
+      body = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      body = { error: responseText || "Attachment download returned a non-JSON response." };
+    }
+    const code = body.code ? ` [${body.code}]` : "";
+    throw new Error(`Unable to download shipment attachment: ${response.status}${code} ${body.error || "Attachment download failed."}`);
+  }
+
+  return response.blob();
+}
+
 export async function createShipmentAttachmentDownloadUrl(attachmentId: string): Promise<ShipmentAttachmentDownloadUrlResponse> {
   if (env.demoMode) {
     return {

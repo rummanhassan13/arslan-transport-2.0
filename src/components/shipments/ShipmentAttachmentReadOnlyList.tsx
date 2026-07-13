@@ -4,7 +4,7 @@ import { getShipmentAttachmentCategoryLabel } from "../../constants/attachmentCa
 import { env } from "../../config/env";
 import { useAuth } from "../../hooks/useAuth";
 import {
-  createShipmentAttachmentDownloadUrl,
+  downloadShipmentAttachmentFile,
   listAttachmentsForShipmentIds,
 } from "../../services/shipmentAttachments";
 import type { Shipment, ShipmentAttachment } from "../../types/domain";
@@ -95,7 +95,10 @@ export function ShipmentAttachmentReadOnlyList({
 
   const openAttachment = async (attachment: ShipmentAttachment, mode: "preview" | "download") => {
     setPreviewMessage("");
-    setPreviewUrl("");
+    setPreviewUrl((currentUrl) => {
+      if (currentUrl.startsWith("blob:")) URL.revokeObjectURL(currentUrl);
+      return "";
+    });
 
     if (env.demoMode) {
       if (mode === "preview") {
@@ -108,15 +111,23 @@ export function ShipmentAttachmentReadOnlyList({
     }
 
     try {
-      const signed = await createShipmentAttachmentDownloadUrl(attachment.id);
+      const blob = await downloadShipmentAttachmentFile(attachment.id);
+      const objectUrl = URL.createObjectURL(blob);
       if (mode === "download") {
-        window.open(signed.signedDownloadUrl, "_blank", "noopener,noreferrer");
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = attachment.fileName;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
         return;
       }
       setPreviewAttachment(attachment);
-      setPreviewUrl(signed.signedDownloadUrl);
+      setPreviewUrl(objectUrl);
     } catch (downloadError) {
-      const text = downloadError instanceof Error ? downloadError.message : "Unable to create signed document URL.";
+      const text = downloadError instanceof Error ? downloadError.message : "Unable to download shipment document.";
       if (mode === "preview") {
         setPreviewAttachment(attachment);
         setPreviewMessage(text);
@@ -165,6 +176,7 @@ export function ShipmentAttachmentReadOnlyList({
           signedUrl={previewUrl}
           message={previewMessage}
           onClose={() => {
+            if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
             setPreviewAttachment(null);
             setPreviewUrl("");
             setPreviewMessage("");

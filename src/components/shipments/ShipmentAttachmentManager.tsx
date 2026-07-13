@@ -4,7 +4,7 @@ import { SHIPMENT_ATTACHMENT_CATEGORIES, getShipmentAttachmentCategoryLabel } fr
 import { env } from "../../config/env";
 import { useShipmentAttachments } from "../../hooks/useShipmentAttachments";
 import {
-  createShipmentAttachmentDownloadUrl,
+  downloadShipmentAttachmentFile,
   uploadShipmentAttachmentFile,
 } from "../../services/shipmentAttachments";
 import type { ShipmentAttachment, ShipmentAttachmentCategory } from "../../types/domain";
@@ -102,7 +102,10 @@ export function ShipmentAttachmentManager({
 
   const openAttachment = async (attachment: ShipmentAttachment, mode: "preview" | "download") => {
     setPreviewMessage("");
-    setPreviewUrl("");
+    setPreviewUrl((currentUrl) => {
+      if (currentUrl.startsWith("blob:")) URL.revokeObjectURL(currentUrl);
+      return "";
+    });
 
     if (env.demoMode) {
       setPreviewAttachment(mode === "preview" ? attachment : null);
@@ -111,22 +114,25 @@ export function ShipmentAttachmentManager({
     }
 
     try {
-      const signed = await createShipmentAttachmentDownloadUrl(attachment.id);
+      const blob = await downloadShipmentAttachmentFile(attachment.id);
+      const objectUrl = URL.createObjectURL(blob);
       if (mode === "download") {
-        window.open(signed.signedDownloadUrl, "_blank", "noopener,noreferrer");
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = attachment.fileName;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
         return;
       }
       setPreviewAttachment(attachment);
       setPreviewMessage("Loading secure preview...");
-
-      const response = await fetch(signed.signedDownloadUrl);
-      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
       setPreviewUrl(objectUrl);
       setPreviewMessage("");
     } catch (downloadError) {
-      const text = downloadError instanceof Error ? downloadError.message : "Unable to create signed download URL.";
+      const text = downloadError instanceof Error ? downloadError.message : "Unable to download shipment document.";
       if (mode === "preview") {
         setPreviewAttachment(attachment);
         setPreviewMessage(text);
@@ -335,7 +341,7 @@ function ShipmentDocumentPreviewModal({
             <span>{message || "Creating secure preview URL..."}</span>
           </div>
         )}
-        <p className="attachment-note">Documents are stored privately. Preview and download use short-lived signed URLs.</p>
+        <p className="attachment-note">Documents are stored privately and delivered through the secure attachment service.</p>
       </div>
     </Modal>
   );
