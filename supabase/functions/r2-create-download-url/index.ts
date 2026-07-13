@@ -8,6 +8,8 @@ type CreateDownloadInput = {
   attachmentId?: string;
   attachment_id?: string;
   table?: "shipment_attachments" | "expense_attachments";
+  responseDisposition?: "inline" | "attachment";
+  response_disposition?: "inline" | "attachment";
 };
 
 class FunctionError extends Error {
@@ -48,9 +50,8 @@ function corsHeaders(req: Request) {
 
   return {
     "access-control-allow-origin": allowedOrigin,
-    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-attachment-response",
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
     "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-expose-headers": "content-disposition, content-length, content-type",
   };
 }
 
@@ -153,23 +154,6 @@ function r2Client() {
   });
 }
 
-async function objectBodyForResponse(body: unknown): Promise<BodyInit> {
-  if (body instanceof ReadableStream) return body;
-
-  const streamBody = body as {
-    transformToWebStream?: () => ReadableStream;
-    transformToByteArray?: () => Promise<Uint8Array>;
-  };
-  if (typeof streamBody.transformToWebStream === "function") {
-    return streamBody.transformToWebStream();
-  }
-  if (typeof streamBody.transformToByteArray === "function") {
-    return streamBody.transformToByteArray();
-  }
-
-  throw new Error("Attachment storage returned an unsupported response body.");
-}
-
 Deno.serve(async (req) => {
   const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return json({ ok: true }, 200, cors);
@@ -209,57 +193,21 @@ Deno.serve(async (req) => {
     await assertMembership(supabase, organizationId, user.id);
     await assertShipmentBelongsToOrganization(supabase, organizationId, metadata.shipment_id);
 
-    const returnFile = req.headers.get("x-attachment-response") === "file";
     const bucketName = required("R2_BUCKET_NAME", "R2_CONFIG_MISSING", "R2 configuration is missing.");
-    if (returnFile) {
-      let object: { Body?: unknown; ContentLength?: number };
-      try {
-        object = await r2Client().send(new GetObjectCommand({
-          Bucket: bucketName,
-          Key: objectKey,
-        }));
-      } catch (storageError) {
-        console.error("R2 attachment read failed", storageError);
-        throw new FunctionError("R2_DOWNLOAD_FAILED", "Unable to load the attachment from storage.", 502);
-      }
-
-      if (!object.Body) {
-        throw new FunctionError("R2_DOWNLOAD_FAILED", "The attachment storage response was empty.", 502);
-      }
-
-      let responseBody: BodyInit;
-      try {
-        responseBody = await objectBodyForResponse(object.Body);
-      } catch (storageError) {
-        console.error("R2 attachment response conversion failed", storageError);
-        throw new FunctionError("R2_DOWNLOAD_FAILED", "Unable to read the attachment from storage.", 502);
-      }
-
-      const safeName = metadata.file_name ? metadata.file_name.replace(/["\\]/g, "") : "attachment";
-      return new Response(responseBody, {
-        status: 200,
-        headers: {
-          "content-type": metadata.file_type || "application/octet-stream",
-          ...(object.ContentLength ? { "content-length": String(object.ContentLength) } : {}),
-          "content-disposition": `inline; filename="${safeName}"`,
-          ...cors,
-        },
-      });
-    }
-
     const expiresAt = new Date(Date.now() + downloadExpirySeconds * 1000).toISOString();
 
-    // Enforce Content-Disposition: attachment for non-images
     const isImage = metadata.file_type && ["image/jpeg", "image/png", "image/webp"].includes(metadata.file_type);
+    const requestedDisposition = body.response_disposition ?? body.responseDisposition;
+    const disposition = requestedDisposition === "inline" || requestedDisposition === "attachment"
+      ? requestedDisposition
+      : isImage ? "inline" : "attachment";
+    const safeName = metadata.file_name ? metadata.file_name.replace(/["\\]/g, "") : "attachment";
     const getObjectParams: any = {
       Bucket: bucketName,
       Key: objectKey,
+      ResponseContentDisposition: `${disposition}; filename="${safeName}"`,
+      ...(metadata.file_type ? { ResponseContentType: metadata.file_type } : {}),
     };
-
-    if (!isImage) {
-      const safeName = metadata.file_name ? metadata.file_name.replace(/["\\]/g, "") : "attachment";
-      getObjectParams.ResponseContentDisposition = `attachment; filename="${safeName}"`;
-    }
 
     const command = new GetObjectCommand(getObjectParams);
     let signedDownloadUrl: string;

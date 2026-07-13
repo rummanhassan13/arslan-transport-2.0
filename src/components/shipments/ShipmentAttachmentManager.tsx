@@ -1,19 +1,21 @@
 import { useRef, useState, type ChangeEvent } from "react";
-import { Download, Eye, FileText, Image, RefreshCcw, Trash2, UploadCloud } from "lucide-react";
+import { Download, Eye, LoaderCircle, RefreshCcw, Trash2, UploadCloud } from "lucide-react";
 import { SHIPMENT_ATTACHMENT_CATEGORIES, getShipmentAttachmentCategoryLabel } from "../../constants/attachmentCategories";
 import { env } from "../../config/env";
 import { useShipmentAttachments } from "../../hooks/useShipmentAttachments";
-import {
-  downloadShipmentAttachmentFile,
-  uploadShipmentAttachmentFile,
-} from "../../services/shipmentAttachments";
+import { uploadShipmentAttachmentFile } from "../../services/shipmentAttachments";
 import type { ShipmentAttachment, ShipmentAttachmentCategory } from "../../types/domain";
 import type { ShipmentExpense } from "../../types/domain";
 import { getExpenseActualCost } from "../../utils/calculations";
 import { formatDate } from "../../utils/formatters";
 import { labelize, money } from "../../utils/formatters";
-import { formatFileSize, getAttachmentKind, validateAttachmentFile } from "../../utils/fileValidation";
-import { EmptyState, Modal, StatusBadge } from "../ui";
+import { formatFileSize, validateAttachmentFile } from "../../utils/fileValidation";
+import { EmptyState, StatusBadge } from "../ui";
+import {
+  downloadShipmentDocument,
+  ShipmentDocumentPreviewModal,
+  ShipmentDocumentThumbnail,
+} from "./ShipmentDocumentViewer";
 
 export function ShipmentAttachmentManager({
   shipmentId,
@@ -37,8 +39,7 @@ export function ShipmentAttachmentManager({
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<ShipmentAttachment | null>(null);
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [previewMessage, setPreviewMessage] = useState("");
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<string | null>(null);
   const {
     attachments,
     loading,
@@ -100,45 +101,15 @@ export function ShipmentAttachmentManager({
     }
   };
 
-  const openAttachment = async (attachment: ShipmentAttachment, mode: "preview" | "download") => {
-    setPreviewMessage("");
-    setPreviewUrl((currentUrl) => {
-      if (currentUrl.startsWith("blob:")) URL.revokeObjectURL(currentUrl);
-      return "";
-    });
-
-    if (env.demoMode) {
-      setPreviewAttachment(mode === "preview" ? attachment : null);
-      setPreviewMessage("Demo mode stores mock document metadata only. Real preview/download is available in Supabase + R2 mode.");
-      return;
-    }
-
+  const downloadAttachment = async (attachment: ShipmentAttachment) => {
+    setMessage("");
+    setDownloadingAttachmentId(attachment.id);
     try {
-      const blob = await downloadShipmentAttachmentFile(attachment.id);
-      const objectUrl = URL.createObjectURL(blob);
-      if (mode === "download") {
-        const link = document.createElement("a");
-        link.href = objectUrl;
-        link.download = attachment.fileName;
-        link.style.display = "none";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-        return;
-      }
-      setPreviewAttachment(attachment);
-      setPreviewMessage("Loading secure preview...");
-      setPreviewUrl(objectUrl);
-      setPreviewMessage("");
+      await downloadShipmentDocument(attachment);
     } catch (downloadError) {
-      const text = downloadError instanceof Error ? downloadError.message : "Unable to download shipment document.";
-      if (mode === "preview") {
-        setPreviewAttachment(attachment);
-        setPreviewMessage(text);
-      } else {
-        setMessage(text);
-      }
+      setMessage(downloadError instanceof Error ? downloadError.message : "Unable to download shipment document.");
+    } finally {
+      setDownloadingAttachmentId(null);
     }
   };
 
@@ -218,8 +189,9 @@ export function ShipmentAttachmentManager({
                     attachment={attachment}
                     linkedExpense={linkedExpenses.find((expense) => expense.id === attachment.shipmentExpenseId) ?? null}
                     readOnly={readOnly}
-                    onPreview={() => void openAttachment(attachment, "preview")}
-                    onDownload={() => void openAttachment(attachment, "download")}
+                    downloading={downloadingAttachmentId === attachment.id}
+                    onPreview={() => setPreviewAttachment(attachment)}
+                    onDownload={() => void downloadAttachment(attachment)}
                     onDelete={() => void removeAttachment(attachment)}
                   />
                 ))}
@@ -233,16 +205,7 @@ export function ShipmentAttachmentManager({
       {previewAttachment && (
         <ShipmentDocumentPreviewModal
           attachment={previewAttachment}
-          signedUrl={previewUrl}
-          message={previewMessage}
-          onClose={() => {
-            if (previewUrl && previewUrl.startsWith("blob:")) {
-              URL.revokeObjectURL(previewUrl);
-            }
-            setPreviewAttachment(null);
-            setPreviewUrl("");
-            setPreviewMessage("");
-          }}
+          onClose={() => setPreviewAttachment(null)}
         />
       )}
     </div>
@@ -253,6 +216,7 @@ function ShipmentDocumentCard({
   attachment,
   linkedExpense,
   readOnly,
+  downloading,
   onPreview,
   onDownload,
   onDelete,
@@ -260,17 +224,14 @@ function ShipmentDocumentCard({
   attachment: ShipmentAttachment;
   linkedExpense: ShipmentExpense | null;
   readOnly: boolean;
+  downloading: boolean;
   onPreview: () => void;
   onDownload: () => void;
   onDelete: () => void;
 }) {
-  const kind = getAttachmentKind(attachment.fileType);
   return (
     <div className="image-card">
-      <div className="thumb-card h-24">
-        {kind === "pdf" ? <FileText size={24} /> : kind === "image" ? <Image size={24} /> : <UploadCloud size={24} />}
-        <span>{kind === "pdf" ? "PDF" : kind === "image" ? "Image" : "File"}</span>
-      </div>
+      <ShipmentDocumentThumbnail attachment={attachment} onOpen={onPreview} />
       <strong>{attachment.fileName}</strong>
       <StatusBadge status={getShipmentAttachmentCategoryLabel(attachment.category)} />
       <small className="attachment-meta">{attachment.fileType}</small>
@@ -282,8 +243,9 @@ function ShipmentDocumentCard({
         <button className="table-action" type="button" onClick={onPreview}>
           <Eye size={13} /> Preview
         </button>
-        <button className="table-action" type="button" onClick={onDownload}>
-          <Download size={13} /> Download
+        <button className="table-action" disabled={downloading} type="button" onClick={onDownload}>
+          {downloading ? <LoaderCircle className="document-spinner" size={13} /> : <Download size={13} />}
+          {downloading ? "Preparing" : "Download"}
         </button>
         {!readOnly && (
           <button className="table-action" type="button" onClick={onDelete}>
@@ -292,57 +254,5 @@ function ShipmentDocumentCard({
         )}
       </div>
     </div>
-  );
-}
-
-function ShipmentDocumentPreviewModal({
-  attachment,
-  signedUrl,
-  message,
-  onClose,
-}: {
-  attachment: ShipmentAttachment;
-  signedUrl: string;
-  message: string;
-  onClose: () => void;
-}) {
-  const kind = getAttachmentKind(attachment.fileType);
-  return (
-    <Modal 
-      title={`Document Preview - ${attachment.fileName}`} 
-      onClose={onClose} 
-      size="wide"
-      footer={
-        <>
-          <button className="btn-ghost" onClick={onClose} type="button">Close</button>
-          {signedUrl && (
-            <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="btn-primary" download={attachment.fileName}>
-              <Download size={14} /> Download File
-            </a>
-          )}
-        </>
-      }
-    >
-      <div className="attachment-preview">
-        {signedUrl ? (
-          kind === "pdf" ? (
-            <iframe className="attachment-viewer" src={signedUrl} title={attachment.fileName} />
-          ) : kind === "image" ? (
-            <img className="attachment-image-preview" src={signedUrl} alt={attachment.fileName} />
-          ) : (
-            <div className="thumb-card h-56">
-              <UploadCloud size={36} />
-              <span>Preview unavailable for this file type.</span>
-            </div>
-          )
-        ) : (
-          <div className="thumb-card h-56">
-            {kind === "pdf" ? <FileText size={36} /> : kind === "image" ? <Image size={36} /> : <UploadCloud size={36} />}
-            <span>{message || "Creating secure preview URL..."}</span>
-          </div>
-        )}
-        <p className="attachment-note">Documents are stored privately and delivered through the secure attachment service.</p>
-      </div>
-    </Modal>
   );
 }
