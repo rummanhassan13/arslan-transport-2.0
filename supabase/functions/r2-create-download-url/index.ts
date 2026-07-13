@@ -153,6 +153,23 @@ function r2Client() {
   });
 }
 
+async function objectBodyForResponse(body: unknown): Promise<BodyInit> {
+  if (body instanceof ReadableStream) return body;
+
+  const streamBody = body as {
+    transformToWebStream?: () => ReadableStream;
+    transformToByteArray?: () => Promise<Uint8Array>;
+  };
+  if (typeof streamBody.transformToWebStream === "function") {
+    return streamBody.transformToWebStream();
+  }
+  if (typeof streamBody.transformToByteArray === "function") {
+    return streamBody.transformToByteArray();
+  }
+
+  throw new Error("Attachment storage returned an unsupported response body.");
+}
+
 Deno.serve(async (req) => {
   const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return json({ ok: true }, 200, cors);
@@ -195,24 +212,35 @@ Deno.serve(async (req) => {
     const returnFile = req.headers.get("x-attachment-response") === "file";
     const bucketName = required("R2_BUCKET_NAME", "R2_CONFIG_MISSING", "R2 configuration is missing.");
     if (returnFile) {
-      let fileBytes: Uint8Array;
+      let object: { Body?: unknown; ContentLength?: number };
       try {
-        const object = await r2Client().send(new GetObjectCommand({
+        object = await r2Client().send(new GetObjectCommand({
           Bucket: bucketName,
           Key: objectKey,
         }));
-        if (!object.Body) throw new Error("Attachment body is empty.");
-        fileBytes = await object.Body.transformToByteArray();
-      } catch {
+      } catch (storageError) {
+        console.error("R2 attachment read failed", storageError);
         throw new FunctionError("R2_DOWNLOAD_FAILED", "Unable to load the attachment from storage.", 502);
       }
 
+      if (!object.Body) {
+        throw new FunctionError("R2_DOWNLOAD_FAILED", "The attachment storage response was empty.", 502);
+      }
+
+      let responseBody: BodyInit;
+      try {
+        responseBody = await objectBodyForResponse(object.Body);
+      } catch (storageError) {
+        console.error("R2 attachment response conversion failed", storageError);
+        throw new FunctionError("R2_DOWNLOAD_FAILED", "Unable to read the attachment from storage.", 502);
+      }
+
       const safeName = metadata.file_name ? metadata.file_name.replace(/["\\]/g, "") : "attachment";
-      return new Response(fileBytes, {
+      return new Response(responseBody, {
         status: 200,
         headers: {
           "content-type": metadata.file_type || "application/octet-stream",
-          "content-length": String(fileBytes.byteLength),
+          ...(object.ContentLength ? { "content-length": String(object.ContentLength) } : {}),
           "content-disposition": `inline; filename="${safeName}"`,
           ...cors,
         },
