@@ -292,7 +292,7 @@ function ShipmentTable({
               <th>Client & Route</th>
               <th>Assignment</th>
               <th className="num text-right">Company Total</th>
-              <th className="num text-right">Driver Payable</th>
+              <th className="num text-right">Driver Total</th>
               <th className="num text-right">Profit</th>
               <th>Financial Status</th>
               <th className="text-center w-24">Actions</th>

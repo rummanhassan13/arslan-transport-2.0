@@ -53,6 +53,10 @@ export type ShipmentAttachmentDownloadUrlResponse = {
   expiresAt: string;
 };
 
+export type ShipmentAttachmentUploadResponse = {
+  storageKey: string;
+};
+
 type EdgeFunctionErrorBody = {
   error?: string;
   code?: string;
@@ -329,6 +333,52 @@ export async function uploadFileToSignedUrl(file: File, signedUrl: string, heade
   if (!response.ok) {
     throw new Error(`Shipment attachment upload failed with status ${response.status}.`);
   }
+}
+
+export async function uploadShipmentAttachmentFile(
+  file: File,
+  input: ShipmentAttachmentUploadUrlInput,
+): Promise<ShipmentAttachmentUploadResponse> {
+  const category = input.category ?? "other";
+  if (!SHIPMENT_ATTACHMENT_CATEGORIES.includes(category)) {
+    throw new Error("Unsupported shipment attachment category.");
+  }
+
+  if (env.demoMode) {
+    return {
+      storageKey: `demo/${input.shipmentId}/${category}/${Date.now()}-${input.fileName}`,
+    };
+  }
+
+  const response = await fetch(getFunctionUrl("r2-create-upload-url"), {
+    method: "PUT",
+    headers: {
+      ...(await getFunctionHeaders()),
+      "Content-Type": file.type,
+      "x-shipment-id": input.shipmentId,
+      "x-shipment-expense-id": input.shipmentExpenseId ?? "",
+      "x-attachment-category": category,
+      "x-file-name": input.fileName,
+      "x-file-type": input.fileType,
+      "x-file-size": String(input.fileSize),
+    },
+    body: file,
+  });
+  const responseText = await response.text();
+  let body: EdgeFunctionErrorBody & Record<string, unknown>;
+  try {
+    body = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    body = { error: responseText || "Attachment upload returned a non-JSON response." };
+  }
+
+  if (!response.ok || body.error || typeof body.storageKey !== "string") {
+    const message = body.error || "Attachment upload failed.";
+    const code = body.code ? ` [${body.code}]` : "";
+    throw new Error(`Unable to upload shipment attachment: ${response.status}${code} ${message}`);
+  }
+
+  return { storageKey: body.storageKey };
 }
 
 export async function createShipmentAttachmentDownloadUrl(attachmentId: string): Promise<ShipmentAttachmentDownloadUrlResponse> {

@@ -77,8 +77,8 @@ function corsHeaders(req: Request) {
 
   return {
     "access-control-allow-origin": allowedOrigin,
-    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
-    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-shipment-id, x-shipment-expense-id, x-attachment-category, x-file-name, x-file-type, x-file-size",
+    "access-control-allow-methods": "POST, PUT, OPTIONS",
   };
 }
 
@@ -231,13 +231,91 @@ function r2Client() {
   });
 }
 
+async function authorizeUpload(
+  req: Request,
+  input: {
+    shipmentId?: string;
+    shipmentExpenseId?: string;
+    category?: string;
+    fileName?: string;
+    fileType?: string;
+    fileSize: number;
+  },
+) {
+  assertR2Config();
+  const { shipmentId, shipmentExpenseId, category = "other", fileName, fileType, fileSize } = input;
+  const { supabase, user } = await getUser(req);
+
+  if (!shipmentId) {
+    throw new FunctionError("MISSING_SHIPMENT_ID", "shipment_id is required.", 400);
+  }
+  if (!fileName || !fileType || !Number.isFinite(fileSize)) {
+    throw new FunctionError("MISSING_FILE_FIELDS", "file_name, file_type, and file_size are required.", 400);
+  }
+  if (!allowedCategories.includes(category)) {
+    throw new FunctionError("INVALID_CATEGORY", "Unsupported shipment attachment category.", 400);
+  }
+
+  const shipment = await assertShipmentBelongsToOrganization(supabase, shipmentId);
+  const organizationId = shipment.organization_id;
+  const membership = await getMembership(supabase, organizationId, user.id);
+  if (membership.role === "viewer") {
+    throw new FunctionError("FORBIDDEN_ROLE", "Viewers cannot upload shipment attachments.", 403);
+  }
+
+  const validationError = validateFile(fileType, fileSize);
+  if (validationError) {
+    const code = validationError.includes("Unsupported") ? "INVALID_FILE_TYPE" : validationError.includes("large") ? "FILE_TOO_LARGE" : "INVALID_FILE_SIZE";
+    throw new FunctionError(code, validationError, 400);
+  }
+
+  if (shipmentExpenseId) {
+    await assertExpenseBelongsToOrganization(supabase, organizationId, shipmentId, shipmentExpenseId);
+  }
+
+  return { organizationId, shipmentId, category, fileName, fileType, fileSize };
+}
+
+function objectKeyForUpload(organizationId: string, shipmentId: string, category: string, fileName: string) {
+  return `organizations/${organizationId}/shipments/${shipmentId}/${category}/${Date.now()}-${safeFileName(fileName)}`;
+}
+
 Deno.serve(async (req) => {
   const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return json({ ok: true }, 200, cors);
-  if (req.method !== "POST") return json({ error: "Method not allowed.", code: "METHOD_NOT_ALLOWED" }, 405, cors);
+  if (req.method !== "POST" && req.method !== "PUT") return json({ error: "Method not allowed.", code: "METHOD_NOT_ALLOWED" }, 405, cors);
 
   try {
-    assertR2Config();
+    if (req.method === "PUT") {
+      const shipmentId = req.headers.get("x-shipment-id") ?? undefined;
+      const shipmentExpenseId = req.headers.get("x-shipment-expense-id") || undefined;
+      const category = req.headers.get("x-attachment-category") ?? undefined;
+      const fileName = req.headers.get("x-file-name") ?? undefined;
+      const fileType = (req.headers.get("x-file-type") ?? req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
+      const fileSize = Number(req.headers.get("x-file-size"));
+      const authorized = await authorizeUpload(req, { shipmentId, shipmentExpenseId, category, fileName, fileType, fileSize });
+      const fileBytes = new Uint8Array(await req.arrayBuffer());
+      if (fileBytes.byteLength !== authorized.fileSize) {
+        throw new FunctionError("INVALID_FILE_SIZE", "The uploaded file size does not match the request.", 400);
+      }
+
+      const bucketName = required("R2_BUCKET_NAME", "R2_CONFIG_MISSING", "R2 configuration is missing.");
+      const storageKey = objectKeyForUpload(authorized.organizationId, authorized.shipmentId, authorized.category, authorized.fileName);
+      try {
+        await r2Client().send(new PutObjectCommand({
+          Bucket: bucketName,
+          Key: storageKey,
+          Body: fileBytes,
+          ContentType: authorized.fileType,
+          ContentLength: authorized.fileSize,
+        }));
+      } catch {
+        throw new FunctionError("R2_UPLOAD_FAILED", "Unable to upload the attachment to storage.", 502);
+      }
+
+      return json({ storageKey, storage_key: storageKey }, 200, cors);
+    }
+
     const body = (await req.json()) as CreateUploadInput;
     const shipmentId = body.shipment_id ?? body.shipmentId;
     const shipmentExpenseId = body.shipment_expense_id ?? body.shipmentExpenseId ?? body.expenseId;
@@ -246,36 +324,8 @@ Deno.serve(async (req) => {
     const fileType = body.file_type ?? body.fileType;
     const fileSize = Number(body.file_size ?? body.fileSize);
 
-    const { supabase, user } = await getUser(req);
-
-    if (!shipmentId) {
-      throw new FunctionError("MISSING_SHIPMENT_ID", "shipment_id is required.", 400);
-    }
-    if (!fileName || !fileType || !Number.isFinite(fileSize)) {
-      throw new FunctionError("MISSING_FILE_FIELDS", "file_name, file_type, and file_size are required.", 400);
-    }
-    if (!allowedCategories.includes(category)) {
-      throw new FunctionError("INVALID_CATEGORY", "Unsupported shipment attachment category.", 400);
-    }
-
-    const shipment = await assertShipmentBelongsToOrganization(supabase, shipmentId);
-    const organizationId = shipment.organization_id;
-    const membership = await getMembership(supabase, organizationId, user.id);
-    if (membership.role === "viewer") {
-      throw new FunctionError("FORBIDDEN_ROLE", "Viewers cannot upload shipment attachments.", 403);
-    }
-
-    const validationError = validateFile(fileType, fileSize);
-    if (validationError) {
-      const code = validationError.includes("Unsupported") ? "INVALID_FILE_TYPE" : validationError.includes("large") ? "FILE_TOO_LARGE" : "INVALID_FILE_SIZE";
-      throw new FunctionError(code, validationError, 400);
-    }
-
-    if (shipmentExpenseId) {
-      await assertExpenseBelongsToOrganization(supabase, organizationId, shipmentId, shipmentExpenseId);
-    }
-
-    const objectKey = `organizations/${organizationId}/shipments/${shipmentId}/${category}/${Date.now()}-${safeFileName(fileName)}`;
+    const authorized = await authorizeUpload(req, { shipmentId, shipmentExpenseId, category, fileName, fileType, fileSize });
+    const objectKey = objectKeyForUpload(authorized.organizationId, authorized.shipmentId, authorized.category, authorized.fileName);
     const expiresAt = new Date(Date.now() + uploadExpirySeconds * 1000).toISOString();
 
     const bucketName = required("R2_BUCKET_NAME", "R2_CONFIG_MISSING", "R2 configuration is missing.");

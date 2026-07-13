@@ -5,8 +5,7 @@ import { env } from "../../config/env";
 import { useShipmentAttachments } from "../../hooks/useShipmentAttachments";
 import {
   createShipmentAttachmentDownloadUrl,
-  createShipmentAttachmentUploadUrl,
-  uploadFileToSignedUrl,
+  uploadShipmentAttachmentFile,
 } from "../../services/shipmentAttachments";
 import type { ShipmentAttachment, ShipmentAttachmentCategory } from "../../types/domain";
 import type { ShipmentExpense } from "../../types/domain";
@@ -72,7 +71,7 @@ export function ShipmentAttachmentManager({
 
     setUploading(true);
     try {
-      const uploadTarget = await createShipmentAttachmentUploadUrl({
+      const uploadResult = await uploadShipmentAttachmentFile(file, {
         shipmentId,
         shipmentExpenseId,
         category,
@@ -81,7 +80,6 @@ export function ShipmentAttachmentManager({
         fileSize: file.size,
       });
 
-      await uploadFileToSignedUrl(file, uploadTarget.signedUploadUrl, uploadTarget.headers);
       await createAttachmentMetadata({
         shipmentId,
         shipmentExpenseId,
@@ -89,7 +87,7 @@ export function ShipmentAttachmentManager({
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
-        storageKey: uploadTarget.storageKey,
+        storageKey: uploadResult.storageKey,
         notes: notes.trim() || null,
       });
       setNotes("");

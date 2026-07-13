@@ -396,11 +396,10 @@ export function ShipmentSummaryModal({
                     <span className="text-xs text-[var(--ink-3)] uppercase font-semibold mb-2 block">Driver Breakdowns</span>
                     <div className="flex flex-col gap-3">
                       {shipment.assignments.map((assignment, idx) => (
-                        <div key={assignment.id ?? `${assignment.driverId ?? "driver"}-${idx}`} className="grid grid-cols-5 gap-2 text-sm bg-white p-2 rounded border border-[var(--line-soft)]">
+                        <div key={assignment.id ?? `${assignment.driverId ?? "driver"}-${idx}`} className="grid grid-cols-4 gap-2 text-sm bg-white p-2 rounded border border-[var(--line-soft)]">
                           <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Driver</span><span className="font-semibold truncate" title={assignment.driverName}>{assignment.driverName}</span></div>
                           <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Rate</span><span className="font-semibold truncate">{money(assignment.driverRate)}</span></div>
                           <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Paid</span><span className="font-semibold truncate">{money(assignment.totalPaid || 0)}</span></div>
-                          <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Advance</span><span className="font-semibold truncate">{money(assignment.advancePaid || 0)}</span></div>
                           <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Pending</span><span className="font-semibold truncate">{money(assignment.pending || 0)}</span></div>
                         </div>
                       ))}
