@@ -114,3 +114,5 @@ The [documentation index](docs/README.md) is the entry point for:
 ## Project status
 
 The platform is actively developed for the Arslan Transport pilot. Review the [roadmap](docs/product/ROADMAP.md) and [implementation handoff](docs/quality/LOGIC_REMEDIATION_HANDOFF.md) before planning production changes.
+
+Deployment update
