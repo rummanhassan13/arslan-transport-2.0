@@ -1,101 +1,69 @@
-# TransportFlow
+# Arslan Transport 2.0
 
-TransportFlow is a web-based logistics transport management SaaS for small and mid-size transport companies. It replaces Excel/Google Sheet workflows with structured screens for shipments, clients, drivers, vehicles, expenses, attachments, payments, invoices, profit tracking, and reports.
+Arslan Transport 2.0 is a full-stack transport operations platform built on TransportFlow. It brings shipments, master records, expenses, driver reimbursements, payments, invoices, documents, and reporting into one multi-tenant application.
 
-## Current Status
+The application supports both a self-contained demo mode and a Supabase-backed live mode for the Arslan Transport pilot organization.
 
-- React/Vite frontend is working.
-- Supabase project has been created and connected.
-- Initial Supabase database migration has been run successfully.
-- Supabase Auth is working.
-- First pilot organization is seeded:
-  - Name: `Arslan Transport`
-  - Slug: `arslan-transport`
-- First admin user was manually created in Supabase Auth.
-- Admin profile, owner membership, and organization settings row were seeded successfully.
-- Supabase real mode is confirmed working for login and organization access.
-- Demo mode still exists for local mock-data demos.
-- Shipment-owned attachment metadata, R2 signed URL helpers, shipment document UI, expense receipt integration, and read-only document references are implemented in app code.
-- Real PDF generation, production payments, production invoices, and production reports are still future phases unless explicitly implemented later.
+## Core capabilities
 
-## Tech Stack
+- Shipment creation, assignment, status tracking, and route management
+- Client, driver, vehicle, and saved-location master records
+- Shipment expenses, receipts, and driver reimbursement workflows
+- Client and driver payment ledgers
+- Invoice preparation and financial reporting
+- Private shipment documents backed by signed Cloudflare R2 URLs
+- Organization-scoped access through Supabase Auth and Row Level Security
 
-Frontend:
+## Technology
 
-- React
-- Vite
-- TypeScript
-- Tailwind CSS
-- lucide-react
-- Recharts
-- Lightweight local shadcn/ui-style primitives
+| Layer | Technologies |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Data and authentication | Supabase Postgres, Auth, Row Level Security |
+| Storage integration | Cloudflare R2 through Supabase Edge Functions |
+| Charts and UI | Recharts, Lucide React |
+| Quality | Vitest, Testing Library, Playwright, ESLint |
 
-Backend:
-
-- Supabase Auth
-- Supabase Postgres
-- Supabase Row Level Security
-
-Planned storage:
-
-- Cloudflare R2 for private shipment attachments, including bill images and PDFs
-
-## Shipment Documents
-
-Attachments are shipment-owned only:
-
-- Upload is allowed from the shipment Documents/Attachments area.
-- Receipt upload is allowed from the shipment expense workflow.
-- Clients, drivers, vehicles, payments, invoices, and reports do not own attachments.
-- Related modules may show shipment documents as read-only references.
-- Files are private in R2; the database stores `storage_key` and metadata, not public URLs.
-
-Supported MVP files:
-
-- JPG, PNG, WebP images up to 5MB.
-- PDF files up to 10MB.
-
-Required live setup:
-
-- Apply `supabase/migrations/002_shipment_attachments.sql`.
-- Configure R2 secrets as Supabase Edge Function secrets.
-- Deploy `r2-create-upload-url` and `r2-create-download-url` after code changes. The functions were redeployed to project `vijrszfxhadqklnatkpz` during the Phase 6 hardening pass.
-
-## Run Locally
-
-```bash
-npm install
-npm run dev
-```
-
-Default local URL:
+## Repository structure
 
 ```text
-http://127.0.0.1:5173
+.
+|-- docs/          Product, architecture, setup, import, and quality documentation
+|-- e2e/           Browser smoke tests
+|-- import-data/   Source workbooks used by controlled import scripts
+|-- scripts/       Import, reconciliation, validation, and test utilities
+|-- src/           React application and domain code
+|-- supabase/      Database migrations, tests, seeds, and Edge Functions
+`-- README.md      Repository overview and contributor entry point
 ```
 
-## Build
+Runtime-critical directories and configuration files remain at stable paths so application imports, scripts, migrations, and deployment behavior are not coupled to the documentation layout.
+
+## Local development
+
+### Prerequisites
+
+- A current Node.js LTS release
+- npm
+- Supabase credentials only when running in live mode
+
+### Install and run
 
 ```bash
-npm run build
+git clone https://github.com/rummanhassan13/arslan-transport-2.0.git
+cd arslan-transport-2.0
+npm ci
 ```
 
-## Environment Modes
+Create a local `.env.local` file for one of the supported modes.
 
-### Demo Mode
+Demo mode:
 
 ```env
 VITE_DEMO_MODE=true
 ```
 
-Demo mode:
-
-- Bypasses Supabase Auth.
-- Uses mock/local data.
-- Uses localStorage for demo persistence.
-- Does not require Supabase environment variables.
-
-### Supabase Mode
+Supabase mode:
 
 ```env
 VITE_DEMO_MODE=false
@@ -103,22 +71,46 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
 
-Supabase mode:
+Then start the development server:
 
-- Requires login.
-- Loads the authenticated user's organization membership.
-- Shows the app only when the user has active organization access.
-- Is confirmed working for the Arslan Transport pilot setup.
+```bash
+npm run dev
+```
 
-The app also supports `VITE_SUPABASE_PUBLISHABLE_KEY` for newer Supabase dashboard terminology, but `VITE_SUPABASE_ANON_KEY` remains documented as the standard frontend public key.
+See the [environment setup guide](docs/development/ENVIRONMENT_SETUP.md) for onboarding, migrations, Cloudflare R2 configuration, and troubleshooting.
 
-## Supabase Setup
+## Quality commands
 
-The Supabase project exists and the initial schema has been applied. The active pilot setup is:
+| Command | Purpose |
+| --- | --- |
+| `npm run typecheck` | Validate the TypeScript project |
+| `npm run test:unit` | Run focused domain, utility, and hook tests |
+| `npm test` | Run the full Vitest suite |
+| `npm run lint` | Run ESLint across application and test code |
+| `npm run build` | Create a production build |
+| `npm run test:e2e` | Run the browser smoke workflow |
+| `npm run test:db` | Validate the logic-remediation migration |
 
-- Organization: `Arslan Transport`
-- Slug: `arslan-transport`
-- First admin user: manually created in Supabase Auth
-- Role: `owner` through `organization_members`
+Run the relevant quality commands before opening or merging a pull request.
 
-See [ENVIRONMENT_SETUP.md](</E:/OneDrive/Documents/New project/ENVIRONMENT_SETUP.md>) for env examples, migration notes, manual onboarding SQL guidance, and troubleshooting.
+## Documentation
+
+The [documentation index](docs/README.md) is the entry point for:
+
+- Product context and roadmap
+- Architecture decisions and database design
+- Local and production environment setup
+- Controlled data-import procedures
+- Logic audit, remediation, and UI implementation records
+
+## Security notes
+
+- Local environment files and build output are intentionally ignored by Git.
+- Frontend code must use only the Supabase anon or publishable key.
+- Service-role keys, database passwords, R2 secrets, and signing credentials must remain server-side.
+- Database access is organization-scoped through Row Level Security.
+- Shipment documents are private and accessed through time-limited signed URLs.
+
+## Project status
+
+The platform is actively developed for the Arslan Transport pilot. Review the [roadmap](docs/product/ROADMAP.md) and [implementation handoff](docs/quality/LOGIC_REMEDIATION_HANDOFF.md) before planning production changes.
