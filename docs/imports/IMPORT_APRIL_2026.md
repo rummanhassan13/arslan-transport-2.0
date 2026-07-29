@@ -32,10 +32,10 @@ Expected columns:
 driver_name,vehicle_no,truck_type_raw,cell_no
 ```
 
-The current source file was copied from:
+Example approved source location before copying:
 
 ```text
-C:/Users/DELL/Downloads/import-dataapril-2026drivers.csv
+path/to/approved-source/drivers.csv
 ```
 
 ## Required Server-Side Env

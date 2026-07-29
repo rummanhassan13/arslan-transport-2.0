@@ -24,10 +24,10 @@ Place the CSV at:
 import-data/april-2026/loading-and-destination-points.csv
 ```
 
-Current source copied from:
+Example approved source location before copying:
 
 ```text
-C:/Users/DELL/Downloads/loading and destination points.csv
+path/to/approved-source/loading-and-destination-points.csv
 ```
 
 Expected columns:

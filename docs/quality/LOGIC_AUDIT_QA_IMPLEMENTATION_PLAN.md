@@ -10,7 +10,7 @@
 
 ## 1. Executive assessment
 
-TransportFlow has a useful multi-tenant database foundation, RLS policies, normalized tables for expenses and payment ledgers, and a clear architectural intention documented in `DECISIONS.md`. The current runtime implementation does not consistently follow those decisions.
+TransportFlow has a useful multi-tenant database foundation, RLS policies, normalized tables for expenses and payment ledgers, and a clear architectural intention documented in the [architecture decisions](../architecture/DECISIONS.md). The current runtime implementation does not consistently follow those decisions.
 
 The main problem is not one broken form. The application currently has multiple competing sources of truth for the same business facts:
 
