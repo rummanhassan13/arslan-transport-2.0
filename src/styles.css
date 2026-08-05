@@ -825,7 +825,7 @@ button { cursor: pointer; }
   outline: 2px solid var(--accent-tint);
   outline-offset: -2px;
 }
-.table-scroll { max-width: 100%; overflow: auto; }
+.table-scroll { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .table-scroll:focus-within {
   outline: 2px solid var(--accent-tint);
   outline-offset: -2px;
