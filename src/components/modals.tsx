@@ -448,7 +448,7 @@ export function AddShipmentModal({
             </label>
             <label className="field">
               <span>Invoice</span>
-              <input type="text" value={form.invoice} onChange={(event) => setField("invoice", event.target.value)} />
+              <input type="text" value={form.invoice} disabled onChange={(event) => setField("invoice", event.target.value)} />
             </label>
             {inlineCustomerMode ? (
               <label className="field">

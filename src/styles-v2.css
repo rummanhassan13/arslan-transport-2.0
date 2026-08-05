@@ -989,7 +989,8 @@ html[data-sidebar-pinned="false"] .v2-topbar {
 
 .table-scroll {
   max-width: 100%;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: var(--surface);
 }
 

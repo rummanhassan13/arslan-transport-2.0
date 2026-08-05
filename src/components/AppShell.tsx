@@ -341,9 +341,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
                 <button onClick={() => openSettings("Company Profile")} role="menuitem" type="button">
                   <Building2 size={16} /> Company profile
                 </button>
-                <button onClick={() => openSettings("Invoice Settings")} role="menuitem" type="button">
-                  <Settings size={16} /> Invoice settings
-                </button>
+
                 <button onClick={toggleTheme} role="menuitem" type="button">
                   {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
                   {theme === "dark" ? "Light appearance" : "Dark appearance"}
@@ -398,7 +396,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
               <span>{role || "Demo workspace"}</span>
             </div>
             <button onClick={() => openSettings("Company Profile")} type="button"><Building2 size={17} /> Company profile</button>
-            <button onClick={() => openSettings("Invoice Settings")} type="button"><Settings size={17} /> Invoice settings</button>
+
             <button onClick={toggleTheme} type="button">
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
               {theme === "dark" ? "Light appearance" : "Dark appearance"}
