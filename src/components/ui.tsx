@@ -164,6 +164,11 @@ export function Modal({
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -172,7 +177,7 @@ export function Modal({
     panelRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
       if (event.key !== "Tab" || !panelRef.current) return;
       const controls = Array.from(
         panelRef.current.querySelectorAll<HTMLElement>(
@@ -197,7 +202,7 @@ export function Modal({
       document.removeEventListener("keydown", handleKeyDown);
       previouslyFocused?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   const modal = (
     <div className="modal-backdrop" onClick={onClose}>
@@ -345,12 +350,12 @@ export function SelectOrNewField({
           onChange(event.target.value);
         }}
       >
+        <option value="__add_new__">Add new...</option>
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
-        <option value="__add_new__">Add new...</option>
       </select>
     </label>
   );
