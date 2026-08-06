@@ -498,12 +498,12 @@ export function AddShipmentModal({
                   }}
                 >
                   <option value="">Select customer</option>
+                  <option value="__add_new__">Add new...</option>
                   {customerOptions.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
                   ))}
-                  <option value="__add_new__">Add new...</option>
                 </select>
               </label>
             )}
@@ -648,10 +648,10 @@ export function AddShipmentModal({
                       }}
                     >
                       <option value="">Select driver</option>
+                      <option value="__add_new_driver_vehicle__">Add new...</option>
                       {driverOptions.map((option) => (
                         <option key={option} value={option}>{option}</option>
                       ))}
-                      <option value="__add_new_driver_vehicle__">Add new...</option>
                     </select>
                   </label>
                   <label className="field">
@@ -1041,12 +1041,12 @@ function SavedLocationField({
         }}
       >
         <option value="">Select {label.toLowerCase()}</option>
+        <option value="__add_new__">Add new...</option>
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
-        <option value="__add_new__">Add new...</option>
       </select>
     </label>
   );
