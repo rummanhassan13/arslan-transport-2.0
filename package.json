@@ -20,7 +20,9 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
     "@vitejs/plugin-react": "latest",
+    "html2canvas": "^1.4.1",
     "lucide-react": "latest",
+    "pdf-lib": "^1.17.1",
     "react": "latest",
     "react-dom": "latest",
     "read-excel-file": "^9.3.1",

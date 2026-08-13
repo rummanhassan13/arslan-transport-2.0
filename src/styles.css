@@ -2896,3 +2896,95 @@ tbody tr:last-child td { border-bottom: 0; }
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Shipment document PDF preparation */
+.shipment-print-capture {
+  left: -12000px;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  width: 210mm;
+  z-index: -1;
+}
+.shipment-print-capture .invoice-print-preview {
+  background: #fff;
+  box-shadow: none;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  overflow: visible;
+  padding: 0;
+  width: 210mm;
+}
+.shipment-print-capture .invoice-scale-wrapper {
+  height: auto;
+  margin: 0;
+  transform: none;
+  width: 210mm;
+}
+.shipment-print-capture .invoice-print-document {
+  border: 0;
+  box-shadow: none;
+}
+.shipment-print-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  min-height: 360px;
+  padding: 32px;
+  text-align: center;
+}
+.shipment-print-state > span,
+.shipment-print-state > small {
+  color: var(--ink-3);
+}
+.shipment-print-progress {
+  background: var(--line-soft);
+  border-radius: 999px;
+  height: 8px;
+  max-width: 420px;
+  overflow: hidden;
+  width: 100%;
+}
+.shipment-print-progress span {
+  background: var(--accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  min-width: 5%;
+  transition: width 180ms ease;
+}
+.shipment-print-error {
+  color: #b42318;
+}
+.shipment-print-preview-shell {
+  display: grid;
+  gap: 12px;
+}
+.shipment-print-summary {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.shipment-print-summary div {
+  display: grid;
+  gap: 2px;
+}
+.shipment-print-summary span {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.shipment-print-pdf {
+  background: #eef1f5;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  height: min(68vh, 820px);
+  width: 100%;
+}
+.shipment-print-size-warning {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}

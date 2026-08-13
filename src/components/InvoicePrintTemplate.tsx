@@ -1,4 +1,5 @@
 import { Printer } from "lucide-react";
+import type { Ref } from "react";
 import arslanLogo from "../assets/invoice-template/image3.jpeg";
 import trnBadge from "../assets/invoice-template/image7.png";
 import signatureImage from "../assets/invoice-template/image8.jpeg";
@@ -11,6 +12,8 @@ type InvoicePrintTemplateProps = {
   invoiceRecord?: Invoice;
   invoiceItems?: InvoiceItem[];
   shipmentExpenses?: ShipmentExpense[];
+  documentRef?: Ref<HTMLElement>;
+  hideToolbar?: boolean;
 };
 
 type TemplateRow = {
@@ -263,7 +266,14 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
   return resolvedRows;
 }
 
-export function InvoicePrintTemplate({ shipment, invoiceRecord, invoiceItems = [], shipmentExpenses = [] }: InvoicePrintTemplateProps) {
+export function InvoicePrintTemplate({
+  shipment,
+  invoiceRecord,
+  invoiceItems = [],
+  shipmentExpenses = [],
+  documentRef,
+  hideToolbar = false,
+}: InvoicePrintTemplateProps) {
   const invoiceNumber = formatInvoiceNo(invoiceRecord?.invoiceNumber || shipment.invoice);
   const invoiceDate = formatTemplateDate(invoiceRecord?.issueDate || shipment.date);
   const clientName = invoiceRecord?.clientName || snapshotText(invoiceRecord?.clientSnapshot, "name", shipment.customer);
@@ -272,15 +282,17 @@ export function InvoicePrintTemplate({ shipment, invoiceRecord, invoiceItems = [
 
   return (
     <div className="invoice-print-preview">
-      <div className="invoice-print-toolbar">
-        <button className="primary-btn" type="button" onClick={() => window.print()}>
-          <Printer size={16} />
-          Print invoice
-        </button>
-      </div>
+      {!hideToolbar && (
+        <div className="invoice-print-toolbar">
+          <button className="primary-btn" type="button" onClick={() => window.print()}>
+            <Printer size={16} />
+            Print invoice
+          </button>
+        </div>
+      )}
 
       <div className="invoice-scale-wrapper">
-        <article className="invoice-print-document" aria-label={`Tax invoice ${invoiceNumber}`}>
+        <article className="invoice-print-document" aria-label={`Tax invoice ${invoiceNumber}`} ref={documentRef}>
         <header className="arslan-letterhead">
           <div className="arslan-brand-row">
             <img className="arslan-logo" src={arslanLogo} alt="Arslan Transportation truck logo" />
