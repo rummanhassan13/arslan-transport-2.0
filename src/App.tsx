@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/AppShell";
 import { AddShipmentModal, InvoicePreview, PaymentModal } from "./components/modals";
 import { ShipmentSummaryModal } from "./components/ShipmentSummaryModal";
+import { ShipmentPrintBundleModal } from "./components/ShipmentPrintBundleModal";
 import { Toast } from "./components/ui";
 import { AuthProvider } from "./contexts/AuthContext";
 import { BusinessSettingsProvider } from "./contexts/BusinessSettingsContext";
@@ -26,7 +27,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { NoOrganizationAccess } from "./pages/NoOrganizationAccess";
 import { ReportsPage } from "./pages/ReportsPage";
 import { ShipmentsPage } from "./pages/ShipmentsPage";
-import type { DriverPaymentInput, Invoice, ClientPaymentInput, Shipment, ShipmentInput, View } from "./types/domain";
+import type { DriverPaymentInput, Invoice, ClientPaymentInput, Shipment, ShipmentAttachment, ShipmentInput, View } from "./types/domain";
 import type { RouteLocationType } from "./services/routeLocationService";
 import { buildStats, calculateShipmentFinancials } from "./utils/calculations";
 import { deriveDisplayInvoiceStatus, deriveClientPaymentStatus } from "./utils/statusDerivation";
@@ -266,6 +267,11 @@ function DemoApp() {
   const [shipmentDialog, setShipmentDialog] = useState(initialUiState?.shipmentDialog ?? false);
   const [paymentDialog, setPaymentDialog] = useState<{ type?: "Client" | "Driver", shipmentId?: string, driverId?: string, invoiceId?: string } | null>(initialUiState?.paymentDialog ?? null);
   const [invoicePreview, setInvoicePreview] = useState<{ shipment: Shipment; invoice?: Invoice } | null>(null);
+  const [shipmentPrintBundle, setShipmentPrintBundle] = useState<{
+    shipment: Shipment;
+    invoice: Invoice;
+    attachments: ShipmentAttachment[];
+  } | null>(null);
   const [toast, setToast] = useState("");
 
   const [summaryShipmentId, setSummaryShipmentId] = useState<string | null>(initialUiState?.summaryShipmentId ?? null);
@@ -528,6 +534,15 @@ function DemoApp() {
     setInvoicePreview({ shipment, invoice: resolvedInvoice });
   };
 
+  const printShipmentDocuments = (shipment: Shipment, attachments: ShipmentAttachment[]) => {
+    const invoice = invoices.find((row) => row.shipmentId === shipment.id);
+    if (!invoice) {
+      setToast("Generate the invoice before printing all shipment documents.");
+      return;
+    }
+    setShipmentPrintBundle({ shipment, invoice, attachments });
+  };
+
   const generateInvoice = async (shipment: Shipment) => {
     try {
       const generated = await createInvoiceForShipment(shipment);
@@ -677,6 +692,8 @@ function DemoApp() {
           deleteDriverPayment={deleteDriverPayment}
           setPaymentDialog={setPaymentDialog}
           previewInvoice={previewInvoice}
+          printShipmentDocuments={printShipmentDocuments}
+          hasInvoice={invoices.some((invoice) => invoice.shipmentId === summaryShipment.id)}
           onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
           onUpdateShipmentStatus={handleUpdateShipmentStatus}
         />
@@ -701,6 +718,16 @@ function DemoApp() {
           invoiceItems={invoicePreview.invoice ? invoiceItemsByInvoice.get(invoicePreview.invoice.id) ?? [] : []}
           shipmentExpenses={allExpenses.filter((e) => e.shipmentId === invoicePreview.shipment.id)}
           onClose={() => setInvoicePreview(null)}
+        />
+      )}
+      {shipmentPrintBundle && (
+        <ShipmentPrintBundleModal
+          shipment={shipmentPrintBundle.shipment}
+          invoiceRecord={shipmentPrintBundle.invoice}
+          invoiceItems={invoiceItemsByInvoice.get(shipmentPrintBundle.invoice.id) ?? []}
+          shipmentExpenses={allExpenses.filter((expense) => expense.shipmentId === shipmentPrintBundle.shipment.id)}
+          attachments={shipmentPrintBundle.attachments}
+          onClose={() => setShipmentPrintBundle(null)}
         />
       )}
       {toast && <Toast message={toast} onClose={() => setToast("")} />}

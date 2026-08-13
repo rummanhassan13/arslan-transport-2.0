@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Download, Eye, FileText, Image, MoveRight, Paperclip, Plus, UploadCloud, Trash2 } from "lucide-react";
+import { MoveRight, Plus, Printer, Trash2 } from "lucide-react";
 import { Modal, StatusBadge } from "./ui";
 import type { Shipment, ShipmentExpense, ShipmentExpenseInput, ShipmentAttachment, ClientPayment, DriverPayment } from "../types/domain";
 import { money, formatDate, labelize } from "../utils/formatters";
@@ -8,8 +8,6 @@ import { ExpenseDialog } from "../pages/ExpensesPage";
 import { useAuth } from "../hooks/useAuth";
 import { env } from "../config/env";
 import { useShipmentAttachments } from "../hooks/useShipmentAttachments";
-import { createShipmentAttachmentDownloadUrl } from "../services/shipmentAttachments";
-import { formatFileSize, getAttachmentKind } from "../utils/fileValidation";
 import { canApproveExpenses, canManageAttachments, canManageExpenses, canManageInvoices, canManagePayments, canManageShipments } from "../utils/permissions";
 import { ShipmentAttachmentManager } from "./shipments/ShipmentAttachmentManager";
 import { signedClientPaymentAmount, signedDriverPaymentAmount } from "../domain/financials";
@@ -27,6 +25,8 @@ export function ShipmentSummaryModal({
   deleteExpense,
   setPaymentDialog,
   previewInvoice,
+  printShipmentDocuments,
+  hasInvoice,
   onUpdateInvoiceStatus,
   onUpdateShipmentStatus,
   deleteClientPayment,
@@ -46,6 +46,8 @@ export function ShipmentSummaryModal({
   deleteDriverPayment: (paymentId: string) => Promise<void>;
   setPaymentDialog: (state: { type?: "Client" | "Driver", shipmentId?: string, driverId?: string, invoiceId?: string } | null) => void;
   previewInvoice?: (shipment: Shipment) => void;
+  printShipmentDocuments?: (shipment: Shipment, attachments: ShipmentAttachment[]) => void;
+  hasInvoice?: boolean;
   onUpdateInvoiceStatus?: (shipmentId: string, status: import("../types/domain").InvoiceStatus) => void;
   onUpdateShipmentStatus?: (shipmentId: string, status: NonNullable<Shipment["status"]>) => void;
 }) {
@@ -75,13 +77,6 @@ export function ShipmentSummaryModal({
   // Load attachments for this shipment
   const { attachments, loading: loadingAttachments, refreshAttachments } = useShipmentAttachments(shipment.id);
 
-  // Filter expense attachments only
-  const expenseAttachments = useMemo(() => {
-    return attachments.filter((att) => 
-      att.shipmentExpenseId !== null || 
-      ["bill", "receipt", "gate_pass", "fashah", "naql"].includes(att.category)
-    );
-  }, [attachments]);
 
   const financials = useMemo(() => {
     return calculateShipmentFinancials(shipment, shipmentExpenses);
@@ -165,6 +160,18 @@ export function ShipmentSummaryModal({
               {previewInvoice && (
                 <button className="btn-ghost" onClick={() => previewInvoice(shipment)} type="button">
                   View Invoice
+                </button>
+              )}
+              {printShipmentDocuments && (
+                <button
+                  className="btn-ghost"
+                  disabled={!hasInvoice || loadingAttachments}
+                  onClick={() => printShipmentDocuments(shipment, attachments)}
+                  title={!hasInvoice ? "Generate the invoice before printing all shipment documents." : undefined}
+                  type="button"
+                >
+                  <Printer size={15} />
+                  {loadingAttachments ? "Loading Documents..." : "Print All Documents"}
                 </button>
               )}
             </div>
