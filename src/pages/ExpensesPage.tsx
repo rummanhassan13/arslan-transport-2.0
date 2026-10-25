@@ -30,6 +30,8 @@ import { canApproveExpenses, canManageAttachments, canManageExpenses } from "../
 const paidByOptions: ExpensePaidBy[] = ["company", "driver", "client", "other"];
 // "company" is our own business; "client" is shown to users as "Company".
 const paidByLabels: Record<ExpensePaidBy, string> = { company: "My business", driver: "Driver", client: "Company", other: "Other" };
+// Billing section of the expense form is hidden for now; new expenses use a fixed treatment (see ExpenseDialog submit).
+const SHOW_EXPENSE_BILLING_OPTIONS = false;
 const expenseCategoryOptions = Array.from(EXPENSE_CATEGORIES);
 
 export function ExpensesPage({
@@ -401,6 +403,7 @@ export function ExpenseDialog({
   const driverAssignments = (selectedShipment?.assignments ?? []).filter((assignment): assignment is typeof assignment & { id: string } => Boolean(assignment.id));
   // A single-driver shipment needs no choice; the reimbursement goes to that driver.
   const defaultAssignmentId = driverAssignments.length === 1 ? driverAssignments[0].id : null;
+  const primaryAssignmentId = [...driverAssignments].sort((a, b) => a.legOrder - b.legOrder)[0]?.id ?? null;
   const { createAttachmentMetadata } = useShipmentAttachments(form.shipmentId);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -414,8 +417,17 @@ export function ExpenseDialog({
       setSaving(false);
       return;
     }
-    const shipmentAssignmentId = form.driverReimbursable ? (form.shipmentAssignmentId ?? defaultAssignmentId) : null;
-    if (form.driverReimbursable && !shipmentAssignmentId) {
+    // With the billing options hidden, a new expense is billed to the company, put on the invoice and
+    // added to the primary (first-leg) driver's payment; with no driver, the driver part is skipped.
+    // Edits keep the expense's saved treatment.
+    const useDefaultTreatment = !SHOW_EXPENSE_BILLING_OPTIONS && !expense;
+    const treatment = useDefaultTreatment
+      ? { clientBillable: true, includedInInvoice: true, driverReimbursable: Boolean(primaryAssignmentId) }
+      : { clientBillable: Boolean(form.clientBillable), includedInInvoice: Boolean(form.includedInInvoice), driverReimbursable: Boolean(form.driverReimbursable) };
+    const shipmentAssignmentId = treatment.driverReimbursable
+      ? (useDefaultTreatment ? primaryAssignmentId : (form.shipmentAssignmentId ?? defaultAssignmentId))
+      : null;
+    if (treatment.driverReimbursable && !shipmentAssignmentId) {
       setSaveMessage(driverAssignments.length ? "Select which driver to add this to." : "This shipment has no driver to add the expense to.");
       setSaving(false);
       return;
@@ -439,10 +451,10 @@ export function ExpenseDialog({
         // The approval checkbox was removed: new expenses count straight away; edits keep their state unless an approver saves them.
         approved: expense ? (canApprove || Boolean(expense.approved)) : true,
         // A driver being repaid must be recorded as the payer; otherwise keep the existing payer (My business by default).
-        paidBy: form.driverReimbursable ? "driver" : (form.paidBy === "driver" ? "company" : form.paidBy),
-        clientBillable: Boolean(form.clientBillable),
-        includedInInvoice: Boolean(form.clientBillable && form.includedInInvoice),
-        driverReimbursable: Boolean(form.driverReimbursable),
+        paidBy: treatment.driverReimbursable ? "driver" : (form.paidBy === "driver" ? "company" : form.paidBy),
+        clientBillable: treatment.clientBillable,
+        includedInInvoice: treatment.clientBillable && treatment.includedInInvoice,
+        driverReimbursable: treatment.driverReimbursable,
       });
       if (saved && selectedFile) {
         try {
@@ -638,7 +650,7 @@ export function ExpenseDialog({
         </label>
           </div>
         </section>
-        <section className="form-section">
+        {SHOW_EXPENSE_BILLING_OPTIONS && <section className="form-section">
           <div className="form-section-header">
             <h3>Billing</h3>
           </div>
@@ -694,7 +706,7 @@ export function ExpenseDialog({
               </select>
             </label>
           )}
-        </section>
+        </section>}
         <section className="form-section">
           <div className="expense-notes-receipt-row">
             <label className="field">

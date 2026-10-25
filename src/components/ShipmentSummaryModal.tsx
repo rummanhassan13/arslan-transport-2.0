@@ -308,6 +308,28 @@ export function ShipmentSummaryModal({
                 </div>
               </div>
             
+              {/* Driver payments: pay the driver for this shipment */}
+              {canManageFinance && (
+                <div className="border border-[var(--line)] rounded-[var(--radius)] px-4 py-3 -mt-2 flex items-center justify-between gap-3">
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Driver Payments</h3>
+                    <span className="text-xs text-[var(--ink-3)]">Pending {money(shipment.pending)}</span>
+                  </div>
+                  <button
+                    className="btn-primary"
+                    type="button"
+                    onClick={() => setPaymentDialog({
+                      type: "Driver",
+                      shipmentId: shipment.id,
+                      // One driver: lock it in; several: let the form default to the driver still owed money.
+                      ...(shipment.assignments?.length === 1 && shipment.assignments[0].driverId ? { driverId: shipment.assignments[0].driverId } : {}),
+                    })}
+                  >
+                    Pay Driver
+                  </button>
+                </div>
+              )}
+
               {/* Payments Block */}
               <div className="border border-[var(--line)] rounded-[var(--radius)] p-4 -mt-2">
                 <div className="flex justify-between items-center mb-3">

@@ -1093,8 +1093,13 @@ export function PaymentModal({
     if (initialShipmentId) return initialShipmentInvoice?.id ?? "";
     return invoices[0]?.id || "";
   });
+  // For a driver payment on a multi-driver shipment, start on the first driver still owed money (still changeable).
+  const owedAssignment = initialType === "Driver" && !initialDriverId && (initialShipment?.assignments?.length ?? 0) > 1
+    ? initialShipment?.assignments?.find((assignment) => assignment.driverId && (assignment.pending ?? 0) > 0)
+    : undefined;
   const [driverId, setDriverId] = useState(() => {
     if (initialDriverId) return initialDriverId;
+    if (owedAssignment?.driverId) return owedAssignment.driverId;
     if (initialShipmentId) {
       const shipment = initialShipment;
       if (shipment) {
@@ -1110,6 +1115,7 @@ export function PaymentModal({
     return "";
   });
   const [shipmentAssignmentId, setShipmentAssignmentId] = useState(() => {
+    if (owedAssignment) return owedAssignment.id ?? "";
     if (!initialShipmentId) return "";
     const shipment = shipments.find((item) => item.id === initialShipmentId);
     const matches = shipment?.assignments?.filter((assignment) => !initialDriverId || assignment.driverId === initialDriverId) ?? [];

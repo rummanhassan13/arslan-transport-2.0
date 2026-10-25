@@ -10,6 +10,9 @@ import {
   sumMoney,
 } from "../domain/financials";
 
+// The page-level "Add Payment" button is hidden; driver payments are made from the shipment pop-up ("Pay driver").
+const SHOW_PAYMENTS_PAGE_ADD_BUTTON = false;
+
 export function PaymentsPage({
   shipments,
   invoices = [],
@@ -55,13 +58,20 @@ export function PaymentsPage({
               <h3>Payments</h3>
               <p>Company receivables and driver settlement tracking.</p>
             </div>
-            <button className="btn-primary" onClick={openPayment}>
-              Add Payment
-            </button>
+            {SHOW_PAYMENTS_PAGE_ADD_BUTTON && (
+              <button className="btn-primary" onClick={openPayment}>
+                Add Payment
+              </button>
+            )}
           </div>
         </section>
       ) : (
-        <PageTitle title="Payments" subtitle="Company receivables and driver settlement tracking." action="Add Payment" onAction={openPayment} />
+        <PageTitle
+          title="Payments"
+          subtitle="Company receivables and driver settlement tracking."
+          action={SHOW_PAYMENTS_PAGE_ADD_BUTTON ? "Add Payment" : undefined}
+          onAction={SHOW_PAYMENTS_PAGE_ADD_BUTTON ? openPayment : undefined}
+        />
       )}
       <KpiGrid
         items={[
