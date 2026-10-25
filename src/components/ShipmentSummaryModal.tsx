@@ -138,7 +138,7 @@ export function ShipmentSummaryModal({
     <>
       <Modal
         title={
-          <div className="flex justify-between items-center w-full pr-8">
+          <div className="flex items-baseline gap-3">
             <span>Invoice: {shipment.invoice}</span>
             <span className="text-sm font-normal text-[var(--ink-2)]">{formatDate(shipment.date)}</span>
           </div>

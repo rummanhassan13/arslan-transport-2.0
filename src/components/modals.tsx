@@ -540,13 +540,13 @@ export function AddShipmentModal({
           <h3>Driver Details</h3>
           <div className="flex flex-col gap-4">
             {form.assignments?.map((assignment, index) => (
-              <div key={index} className={hasMultipleLegs ? "border border-[var(--border-color)] rounded-[var(--radius)] p-4 relative" : undefined}>
-                {hasMultipleLegs && <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-medium">Driver {assignment.legOrder}</h4>
+              <div key={index} className={hasMultipleLegs ? "shipment-driver-leg" : undefined}>
+                {hasMultipleLegs && <div className="shipment-driver-leg-header">
+                  <h4>Driver {assignment.legOrder}</h4>
                   {index > 0 && (
                     <button
                       type="button"
-                      className="text-xs text-[var(--danger-color)] hover:underline"
+                      className="shipment-driver-leg-remove"
                       onClick={() => {
                         setForm((current) => {
                           const newAssignments = [...(current.assignments || [])];

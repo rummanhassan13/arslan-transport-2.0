@@ -308,7 +308,7 @@ export async function softDeleteShipment(organizationId: string, shipmentId: str
   const supabase = requireSupabaseClient();
   const userId = await getCurrentUserId();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("shipments")
     .update({
       deleted_at: new Date().toISOString(),
@@ -316,9 +316,12 @@ export async function softDeleteShipment(organizationId: string, shipmentId: str
     })
     .eq("id", shipmentId)
     .eq("organization_id", organizationId)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id");
 
   if (error) throw new Error(`Unable to delete shipment: ${error.message}`);
+  // Row-level security can silently match zero rows; surface that instead of pretending it worked.
+  if (!data?.length) throw new Error("Unable to delete shipment: it was not found or your role is not allowed to delete shipments.");
 }
 
 export async function transitionShipmentStatus(

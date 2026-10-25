@@ -44,6 +44,13 @@
   --danger: #f97066;
 }
 
+/* Aliases still referenced by older utility classes in components. */
+:root,
+[data-theme="dark"] {
+  --danger-color: var(--danger);
+  --bg-hover: var(--surface-soft);
+}
+
 html {
   background: var(--app-bg);
   scroll-behavior: smooth;
@@ -1221,6 +1228,8 @@ html[data-sidebar-pinned="false"] .v2-topbar {
 
 .modal-header {
   min-height: 68px;
+  align-items: center;
+  gap: 12px;
   border-bottom: 1px solid var(--line-soft);
   background: var(--surface);
   padding: 0 22px;
@@ -1243,6 +1252,40 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   border-top: 1px solid var(--line-soft);
   background: var(--surface);
   padding: 12px 22px;
+}
+
+.shipment-driver-leg {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+}
+
+.shipment-driver-leg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.shipment-driver-leg-header h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.shipment-driver-leg-remove {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shipment-driver-leg-remove:hover {
+  text-decoration: underline;
 }
 
 .shipment-add-driver-link {
