@@ -125,6 +125,15 @@ async function getFunctionHeaders() {
   };
 }
 
+/** A fetch that never got a response (CORS block, function not deployed, offline) surfaces as "Failed to fetch". */
+function documentServiceUnreachable(cause: unknown) {
+  const origin = typeof window === "undefined" ? "this site" : window.location.origin;
+  return new Error(
+    `Could not reach the document service from ${origin}. The Supabase document functions may not allow this web address yet, or they are not deployed.`,
+    { cause },
+  );
+}
+
 async function callEdgeFunction<T>(functionName: string, payload: Record<string, unknown>): Promise<T> {
   const safePayload = { ...payload };
 
@@ -169,6 +178,7 @@ async function callEdgeFunction<T>(functionName: string, payload: Record<string,
         error,
       });
     }
+    if (error instanceof TypeError) throw documentServiceUnreachable(error);
     throw error;
   }
 }
@@ -352,20 +362,26 @@ export async function uploadShipmentAttachmentFile(
     };
   }
 
-  const response = await fetch(getFunctionUrl("r2-create-upload-url"), {
-    method: "PUT",
-    headers: {
-      ...(await getFunctionHeaders()),
-      "Content-Type": file.type,
-      "x-shipment-id": input.shipmentId,
-      "x-shipment-expense-id": input.shipmentExpenseId ?? "",
-      "x-attachment-category": category,
-      "x-file-name": input.fileName,
-      "x-file-type": input.fileType,
-      "x-file-size": String(input.fileSize),
-    },
-    body: file,
-  });
+  const headers = await getFunctionHeaders();
+  let response: Response;
+  try {
+    response = await fetch(getFunctionUrl("r2-create-upload-url"), {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": file.type,
+        "x-shipment-id": input.shipmentId,
+        "x-shipment-expense-id": input.shipmentExpenseId ?? "",
+        "x-attachment-category": category,
+        "x-file-name": input.fileName,
+        "x-file-type": input.fileType,
+        "x-file-size": String(input.fileSize),
+      },
+      body: file,
+    });
+  } catch (error) {
+    throw documentServiceUnreachable(error);
+  }
   const responseText = await response.text();
   let body: EdgeFunctionErrorBody & Record<string, unknown>;
   try {
