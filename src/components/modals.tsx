@@ -1,13 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { emptyShipment } from "../data/mockData";
 import type { Client, ClientInput, ClientPaymentInput, Driver, DriverPaymentInput, Invoice, InvoiceItem, Shipment, ShipmentInput, TruckType, Vehicle } from "../types/domain";
 import type { RouteLocationType } from "../services/routeLocationService";
 import { calculate } from "../utils/calculations";
-import { labelize, money, unique, uniqueByValues } from "../utils/formatters";
+import { money, unique, uniqueByValues } from "../utils/formatters";
 import { Modal, SelectField, SelectOrNewField, SummaryCard } from "./ui";
 import { InvoicePrintTemplate } from "./InvoicePrintTemplate";
 import { useBusinessSettings } from "../hooks/useBusinessSettings";
-import { ShipmentAttachmentManager } from "./shipments/ShipmentAttachmentManager";
 
 export function AddShipmentModal({
   editShipment,
@@ -107,7 +106,6 @@ export function AddShipmentModal({
       ],
     };
   });
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
   // Lifted inline-create states
   const [inlineCustomerMode, setInlineCustomerMode] = useState(false);
@@ -168,7 +166,7 @@ export function AddShipmentModal({
     const cleanedName = customerDraft.trim().replace(/\s+/g, " ");
     setCustomerInlineError("");
     if (!cleanedName) {
-      setCustomerInlineError("Customer name is required.");
+      setCustomerInlineError("Company name is required.");
       return;
     }
 
@@ -206,13 +204,18 @@ export function AddShipmentModal({
       }
       resetCustomerInline();
     } catch (error) {
-      setCustomerInlineError(error instanceof Error ? error.message : "Unable to save customer.");
+      setCustomerInlineError(error instanceof Error ? error.message : "Unable to save company.");
     } finally {
       setInlineSaving(false);
     }
   };
 
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const saveErrorRef = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    if (saveError) saveErrorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [saveError]);
   const [driverVehicleMode, setDriverVehicleMode] = useState(false);
   const [driverVehicleMessage, setDriverVehicleMessage] = useState("");
   const [driverVehicleSaving, setDriverVehicleSaving] = useState(false);
@@ -228,10 +231,7 @@ export function AddShipmentModal({
     return form.assignments?.reduce((sum, a) => sum + (Number(a.driverRate) || 0), 0) || 0;
   }, [form.assignments]);
 
-  const computedAdvance = useMemo(() => {
-    return form.assignments?.reduce((sum, a) => sum + (Number(a.advancePaid) || 0), 0) || 0;
-  }, [form.assignments]);
-
+  const hasMultipleLegs = (form.assignments?.length ?? 0) > 1;
   const totals = calculate({ ...form, driverRate: computedDriverRate });
   const historicalLocations = uniqueByValues([
     ...shipments.map((shipment) => shipment.loadingPoint),
@@ -383,13 +383,51 @@ export function AddShipmentModal({
     }
   };
   const save = async () => {
+    const missing = [
+      !form.customer.trim() && "Company",
+      !form.loadingPoint.trim() && "Loading Point",
+      !form.destination.trim() && "Destination",
+    ].filter(Boolean);
+    if (missing.length) {
+      setSaveError(`Please fill in ${missing.join(", ")} before saving.`);
+      return;
+    }
+    // Drop extra driver rows left empty, renumber legs, and default each leg's
+    // From/To to the trip's Loading Point/Destination.
+    const assignments = (form.assignments ?? [])
+      .filter((assignment, index) => index === 0 || assignment.driverName.trim())
+      .map((assignment, index) => ({
+        ...assignment,
+        legOrder: index + 1,
+        fromLocation: assignment.fromLocation?.trim() || form.loadingPoint,
+        toLocation: assignment.toLocation?.trim() || form.destination,
+      }));
+    // Mirror the database rules for initial advances so the whole save isn't rejected.
+    if (!editShipment) {
+      for (const assignment of assignments) {
+        const advance = Number(assignment.advancePaid) || 0;
+        if (advance <= 0) continue;
+        const label = assignments.length > 1 ? `Driver ${assignment.legOrder}` : "the driver";
+        if (!assignment.driverName.trim()) {
+          setSaveError(`Select a driver for ${label} before adding an advance.`);
+          return;
+        }
+        if (advance > (Number(assignment.driverRate) || 0)) {
+          setSaveError(`Advance for ${label} cannot be more than the driver rate.`);
+          return;
+        }
+      }
+    }
+    setSaveError("");
     setSaving(true);
     try {
+      const sumOf = (key: "driverRate" | "advancePaid") => assignments.reduce((total, a) => total + (Number(a[key]) || 0), 0);
       const sanitizedForm: ShipmentInput = {
         ...form,
+        assignments,
         companyRate: form.companyRate === "" ? 0 : Number(form.companyRate),
-        driverRate: form.assignments?.length ? computedDriverRate : (form.driverRate === "" ? 0 : Number(form.driverRate)),
-        advance: form.assignments?.length ? computedAdvance : (form.advance === "" ? 0 : Number(form.advance)),
+        driverRate: assignments.length ? sumOf("driverRate") : (form.driverRate === "" ? 0 : Number(form.driverRate)),
+        advance: assignments.length ? sumOf("advancePaid") : (form.advance === "" ? 0 : Number(form.advance)),
         gatePass: form.gatePass === "" ? 0 : Number(form.gatePass),
         fashah: form.fashah === "" ? 0 : Number(form.fashah),
         naql: form.naql === "" ? 0 : Number(form.naql),
@@ -408,39 +446,14 @@ export function AddShipmentModal({
       size="wide"
       footer={
         <>
-          {activeStep === 1 ? (
-            <button className="btn-ghost" onClick={onClose} type="button">Cancel</button>
-          ) : (
-            <button className="btn-ghost" onClick={() => setActiveStep((activeStep - 1) as 1 | 2)} type="button">Back</button>
-          )}
-          {activeStep < 3 ? (
-            <button className="btn-primary" onClick={() => setActiveStep((activeStep + 1) as 2 | 3)} type="button">Continue</button>
-          ) : (
-            <button className="btn-primary" onClick={save} disabled={saving} type="button">{saving ? "Saving..." : editShipment ? "Save Changes" : "Save Shipment"}</button>
-          )}
+          <button className="btn-ghost" onClick={onClose} type="button">Cancel</button>
+          <button className="btn-primary" onClick={save} disabled={saving} type="button">{saving ? "Saving..." : editShipment ? "Save Changes" : "Save Shipment"}</button>
         </>
       }
     >
-      <div className="shipment-form-steps" aria-label="Shipment form progress">
-        {(["Shipment", "Assignment", "Review"] as const).map((label, index) => {
-          const step = (index + 1) as 1 | 2 | 3;
-          return (
-            <button
-              key={label}
-              className={`shipment-form-step${activeStep === step ? " active" : ""}${activeStep > step ? " complete" : ""}`}
-              onClick={() => setActiveStep(step)}
-              aria-current={activeStep === step ? "step" : undefined}
-              type="button"
-            >
-              <span>{step}</span>
-              {label}
-            </button>
-          );
-        })}
-      </div>
       <div className="form-layout">
-        {activeStep === 1 && <section className="form-section">
-          <h3>Shipment</h3>
+        <section className="form-section">
+          <h3>Shipment Details</h3>
           <div className="form-grid">
             <label className="field">
               <span>Date</span>
@@ -452,11 +465,11 @@ export function AddShipmentModal({
             </label>
             {inlineCustomerMode ? (
               <label className="field">
-                <span>Customer</span>
+                <span>Company</span>
                 <div className="select-new-row">
                   <input
                     value={customerDraft}
-                    placeholder="Enter new customer"
+                    placeholder="Enter new company"
                     onChange={(event) => setCustomerDraft(event.target.value)}
                     autoFocus
                   />
@@ -480,7 +493,7 @@ export function AddShipmentModal({
               </label>
             ) : (
               <label className="field">
-                <span>Customer</span>
+                <span>Company</span>
                 <select
                   value={form.customer}
                   onChange={(event) => {
@@ -497,7 +510,7 @@ export function AddShipmentModal({
                     }));
                   }}
                 >
-                  <option value="">Select customer</option>
+                  <option value="">Select company</option>
                   <option value="__add_new__">Add new...</option>
                   {customerOptions.map((option) => (
                     <option key={option} value={option}>
@@ -537,38 +550,23 @@ export function AddShipmentModal({
               setMessage={setDestinationInlineError}
               onCancel={resetDestinationInline}
             />
+            <label className="field">
+              <span>Company Rate</span>
+              <input type="number" value={form.companyRate} onChange={(event) => setField("companyRate", event.target.value)} />
+            </label>
           </div>
-        </section>}
-        {activeStep === 2 && <section className="form-section">
-          <div className="form-section-header">
-            <h3>Driver & Vehicle Assignment</h3>
-            <button
-              className="table-action"
-              type="button"
-              onClick={() => {
-                const newLegOrder = (form.assignments?.length || 0) + 1;
-                setForm((current) => ({
-                  ...current,
-                  assignments: [
-                    ...(current.assignments || []),
-                    { driverId: null, driverName: "", legOrder: newLegOrder, fromLocation: "", toLocation: "", driverRate: 0, notes: "", vehicleId: null, vehicleNo: "", truckTypeId: null, truckType: "", advancePaid: 0 }
-                  ],
-                }));
-              }}
-            >
-              + Add Driver Leg
-            </button>
-          </div>
-          
+        </section>
+        <section className="form-section">
+          <h3>Driver Details</h3>
           <div className="flex flex-col gap-4">
             {form.assignments?.map((assignment, index) => (
-              <div key={index} className="border border-[var(--border-color)] rounded-[var(--radius)] p-4 relative">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-medium">Leg {assignment.legOrder}</h4>
+              <div key={index} className={hasMultipleLegs ? "shipment-driver-leg" : undefined}>
+                {hasMultipleLegs && <div className="shipment-driver-leg-header">
+                  <h4>Driver {assignment.legOrder}</h4>
                   {index > 0 && (
                     <button
                       type="button"
-                      className="text-xs text-[var(--danger-color)] hover:underline"
+                      className="shipment-driver-leg-remove"
                       onClick={() => {
                         setForm((current) => {
                           const newAssignments = [...(current.assignments || [])];
@@ -595,7 +593,7 @@ export function AddShipmentModal({
                       Remove
                     </button>
                   )}
-                </div>
+                </div>}
                 <div className="form-grid">
                   <label className="field">
                     <span>Driver Name</span>
@@ -757,6 +755,7 @@ export function AddShipmentModal({
                       ))}
                     </select>
                   </label>
+                  {hasMultipleLegs && <>
                   <label className="field">
                     <span>From Location</span>
                     <input
@@ -785,6 +784,7 @@ export function AddShipmentModal({
                       }}
                     />
                   </label>
+                  </>}
                   <label className="field">
                     <span>Driver Rate</span>
                     <input
@@ -800,12 +800,12 @@ export function AddShipmentModal({
                     />
                   </label>
                   <label className="field">
-                    <span>{editShipment ? "Advance Paid (ledger)" : "Initial Driver Advance"}</span>
+                    <span>{editShipment ? "Advance Paid (ledger)" : "Driver Advance"}</span>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
-                      value={assignment.advancePaid ?? ""}
+                      value={assignment.advancePaid || ""}
                       disabled={Boolean(editShipment)}
                       title={editShipment ? "Use Add Payment to record or reverse posted advances." : "Recorded as an assignment-aware advance ledger entry when the shipment is saved."}
                       onChange={(e) => {
@@ -817,7 +817,7 @@ export function AddShipmentModal({
                       }}
                     />
                   </label>
-                  <label className="field form-wide">
+                  {hasMultipleLegs && <label className="field form-wide">
                     <span>Notes</span>
                     <input
                       type="text"
@@ -830,45 +830,45 @@ export function AddShipmentModal({
                         });
                       }}
                     />
-                  </label>
+                  </label>}
                 </div>
               </div>
             ))}
           </div>
-        </section>}
-        {activeStep === 3 && (
-          <>
-            <section className="form-section">
-              <h3>Billing</h3>
-              <div className="form-grid">
-                {(["companyRate"] as const).map((key) => (
-                  <label key={key} className="field">
-                    <span>{labelize(key)}</span>
-                    <input type="number" value={form[key]} onChange={(event) => setField(key, event.target.value)} />
-                  </label>
-                ))}
-              </div>
-            </section>
-            <section className="form-section">
-              <h3>Remarks</h3>
-              <div className="form-grid">
-                <label className="field form-wide">
-                  <span>Remark</span>
-                  <textarea value={form.remarks} onChange={(event) => setField("remarks", event.target.value)} />
-                </label>
-              </div>
-            </section>
-          </>
-        )}
+          <button
+            className="shipment-add-driver-link"
+            type="button"
+            onClick={() => {
+              const newLegOrder = (form.assignments?.length || 0) + 1;
+              setForm((current) => ({
+                ...current,
+                assignments: [
+                  ...(current.assignments || []),
+                  { driverId: null, driverName: "", legOrder: newLegOrder, fromLocation: "", toLocation: "", driverRate: 0, notes: "", vehicleId: null, vehicleNo: "", truckTypeId: null, truckType: "", advancePaid: 0 }
+                ],
+              }));
+            }}
+          >
+            + Add another driver
+          </button>
+        </section>
+        <section className="form-section">
+          <h3>Remarks</h3>
+          <div className="form-grid">
+            <label className="field form-wide">
+              <span>Remarks</span>
+              <textarea value={form.remarks} onChange={(event) => setField("remarks", event.target.value)} />
+            </label>
+          </div>
+        </section>
+        {saveError && <p className="inline-alert" role="alert" ref={saveErrorRef}>{saveError}</p>}
       </div>
-      {activeStep === 3 && (
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <SummaryCard title="Company Total" value={money(totals.companyTotal)} note="Auto calculated" />
-          <SummaryCard title="Driver Total" value={money(totals.driverTotal)} note="Auto calculated" />
-          <SummaryCard title="Pending" value={money(totals.pending)} note="Driver balance" />
-          <SummaryCard title="Net Profit" value={money(totals.netProfit)} note="Revenue minus cost" />
-        </div>
-      )}
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <SummaryCard title="Company Total" value={money(totals.companyTotal)} note="Auto calculated" />
+        <SummaryCard title="Driver Total" value={money(totals.driverTotal)} note="Auto calculated" />
+        <SummaryCard title="Pending" value={money(totals.pending)} note="Driver balance" />
+        <SummaryCard title="Net Profit" value={money(totals.netProfit)} note="Revenue minus cost" />
+      </div>
     </Modal>
     {driverVehicleMode && (
       <Modal
@@ -1118,8 +1118,6 @@ export function PaymentModal({
   const [shipmentId, setShipmentId] = useState(initialShipmentId || "");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [paymentMethod, setPaymentMethod] = useState("Bank Transfer");
-  const [referenceNo, setReferenceNo] = useState("");
   const [paymentType, setPaymentType] = useState<DriverPaymentInput["paymentType"]>("settlement");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1141,7 +1139,7 @@ export function PaymentModal({
       return;
     }
     if (type === "Client" && !invoice) {
-      setError("Select a generated invoice before recording a client payment.");
+      setError("Select a generated invoice before recording a company payment.");
       return;
     }
     if (type === "Driver" && (!shipment || !driverId)) {
@@ -1162,8 +1160,6 @@ export function PaymentModal({
               shipmentId: invoice?.shipmentId ?? shipment?.id ?? null,
               amount: numericAmount,
               paymentDate,
-              paymentMethod,
-              referenceNo,
               notes,
             },
           }
@@ -1176,8 +1172,6 @@ export function PaymentModal({
               amount: numericAmount,
               paymentType,
               paymentDate,
-              paymentMethod,
-              referenceNo,
               notes,
             },
           };
@@ -1208,11 +1202,11 @@ export function PaymentModal({
         <section className="form-section">
           <div className="form-section-header">
             <h3>Payment Details</h3>
-            <p>Record a client receipt or driver payout in the finance ledger.</p>
+            <p>Record a company receipt or driver payout in the finance ledger.</p>
           </div>
           {error && <div className="alert-danger mb-4 p-3 rounded">{error}</div>}
           <div className="form-grid">
-            <SelectField label="Payment Type" value={type} onChange={(value) => setType(value as "Client" | "Driver")} options={["Client", "Driver"]} disabled={!!initialType} />
+            <SelectField label="Payment Type" value={type} onChange={(value) => setType(value as "Client" | "Driver")} options={["Client", "Driver"]} optionLabels={{ Client: "Company" }} disabled={!!initialType} />
             {type === "Client" ? (
               <>
                 <label className="field">
@@ -1221,15 +1215,15 @@ export function PaymentModal({
                     {!availableInvoices.length && <option value="">No invoice generated for this shipment</option>}
                     {availableInvoices.map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
-                        {invoice.invoiceNumber} - {invoice.clientName || "Client"}
+                        {invoice.invoiceNumber} - {invoice.clientName || "Company"}
                       </option>
                     ))}
                   </select>
                 </label>
                 {initialShipmentId && !initialShipmentInvoice && (
                   <div className="field flex flex-col justify-center bg-[var(--bg-hover)] p-2 rounded border border-[var(--line-soft)]">
-                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold mb-1">Client payment unavailable</span>
-                    <span className="text-sm text-[var(--ink-2)]">Generate this shipment's invoice before recording a client payment.</span>
+                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold mb-1">Company payment unavailable</span>
+                    <span className="text-sm text-[var(--ink-2)]">Generate this shipment's invoice before recording a company payment.</span>
                   </div>
                 )}
               </>
@@ -1316,27 +1310,8 @@ export function PaymentModal({
             )}
             <label className="field"><span>Amount</span><input type="number" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
             <label className="field"><span>Payment Date</span><input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required /></label>
-            <label className="field"><span>Payment Method</span><input value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} /></label>
-            <label className="field"><span>Reference No</span><input value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Check #, Trx ID" /></label>
             <label className="field form-wide"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
           </div>
-        </section>
-        <section className="form-section">
-          <div className="form-section-header">
-            <h3>Receipts & Documents</h3>
-            <p>Upload a receipt or proof of payment. It will be linked to the selected shipment.</p>
-          </div>
-          {shipmentId ? (
-            <ShipmentAttachmentManager
-              shipmentId={shipmentId}
-              defaultCategory={type === "Client" ? "client_document" : "receipt"}
-              compact
-            />
-          ) : (
-            <div className="text-sm text-[var(--ink-3)] p-4 border border-dashed border-[var(--line-soft)] rounded-[var(--radius)] text-center">
-              Select a shipment above to upload payment documents.
-            </div>
-          )}
         </section>
       </form>
     </Modal>

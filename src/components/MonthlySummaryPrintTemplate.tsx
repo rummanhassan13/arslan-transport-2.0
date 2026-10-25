@@ -61,7 +61,7 @@ export function MonthlySummaryPrintTemplate({ shipments, customerName, dateRange
             <h2>MONTHLY SUMMARY REPORT</h2>
             <section className="summary-meta-row" aria-label="Report summary">
               <div>
-                <span>CUSTOMER:</span>
+                <span>COMPANY:</span>
                 <strong>{customerName || "All"}</strong>
               </div>
               <div>

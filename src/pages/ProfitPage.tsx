@@ -9,17 +9,17 @@ export function ProfitPage({ shipments, stats, embedded = false }: { shipments: 
   const byDestination = profitBy(shipments, "destination").sort((a, b) => b.profit - a.profit).slice(0, 6);
   return (
     <>
-      {!embedded && <PageTitle title="Profit Dashboard" subtitle="Margin, route, customer, and shipment profitability." />}
+      {!embedded && <PageTitle title="Profit Dashboard" subtitle="Margin, route, company, and shipment profitability." />}
       <KpiGrid
         items={[
           ["Total Profit", money(stats.netProfit), "Estimated after driver cost"],
           ["Margin", `${stats.margin}%`, "Revenue margin"],
-          ["Top Customer", best?.customer ?? "-", best ? money(best.netProfit) : "No shipments"],
+          ["Top Company", best?.customer ?? "-", best ? money(best.netProfit) : "No shipments"],
           ["Top Route", best ? `${best.loadingPoint} to ${best.destination}` : "-", best ? money(best.netProfit) : "No shipments"],
         ]}
       />
       <div className="charts-row">
-        <Card title="By Customer">
+        <Card title="By Company">
           <ProfitPipeline rows={byCustomer} />
         </Card>
         <Card title="By Destination">
@@ -28,7 +28,7 @@ export function ProfitPage({ shipments, stats, embedded = false }: { shipments: 
       </div>
       <DataTable
         title="Most Profitable Shipments"
-        columns={["Invoice No", "Customer", "Loading Point", "Destination", "Company Total", "Driver Total", "Net Profit", "Profit Margin"]}
+        columns={["Invoice No", "Company", "Loading Point", "Destination", "Company Total", "Driver Total", "Net Profit", "Profit Margin"]}
         rows={[...shipments].sort((a, b) => b.netProfit - a.netProfit).map((row) => [
           <span className="num invoice-cell">{row.invoice}</span>,
           row.customer,

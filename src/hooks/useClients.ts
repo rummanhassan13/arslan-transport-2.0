@@ -25,7 +25,7 @@ function buildDemoClients(shipments: Shipment[]): Client[] {
       phone: null,
       email: null,
       address: null,
-      notes: "Demo client derived from mock shipment data.",
+      notes: "Demo company derived from mock shipment data.",
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -60,7 +60,7 @@ export function useClients(shipments: Shipment[] = []) {
 
     if (!organizationId) {
       setClients([]);
-      setError("No active organization is available for loading clients.");
+      setError("No active organization is available for loading companies.");
       setLoading(false);
       return;
     }
@@ -70,7 +70,7 @@ export function useClients(shipments: Shipment[] = []) {
     try {
       setClients(await listClients(organizationId));
     } catch (clientError) {
-      setError(clientError instanceof Error ? clientError.message : "Unable to load clients.");
+      setError(clientError instanceof Error ? clientError.message : "Unable to load companies.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ export function useClients(shipments: Shipment[] = []) {
         return created;
       }
 
-      if (!organizationId) throw new Error("No active organization is available for creating clients.");
+      if (!organizationId) throw new Error("No active organization is available for creating companies.");
 
       const created = await createSupabaseClient(organizationId, input);
       setClients((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
@@ -137,7 +137,7 @@ export function useClients(shipments: Shipment[] = []) {
       return updatedClient;
     }
 
-    if (!organizationId) throw new Error("No active organization is available for updating clients.");
+    if (!organizationId) throw new Error("No active organization is available for updating companies.");
 
     const updated = await updateSupabaseClient(organizationId, clientId, input);
     setClients((current) => current.map((client) => (client.id === clientId ? updated : client)));
@@ -151,7 +151,7 @@ export function useClients(shipments: Shipment[] = []) {
       return;
     }
 
-    if (!organizationId) throw new Error("No active organization is available for deleting clients.");
+    if (!organizationId) throw new Error("No active organization is available for deleting companies.");
 
     await softDeleteClient(organizationId, clientId);
     setClients((current) => current.filter((client) => client.id !== clientId));

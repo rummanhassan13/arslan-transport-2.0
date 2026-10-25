@@ -71,7 +71,7 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
       }
       setDialogOpen(false);
     } catch (clientError) {
-      setActionError(clientError instanceof Error ? clientError.message : "Unable to save client.");
+      setActionError(clientError instanceof Error ? clientError.message : "Unable to save company.");
     }
   };
 
@@ -80,7 +80,7 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
     try {
       await deleteClient(client.id);
     } catch (clientError) {
-      setActionError(clientError instanceof Error ? clientError.message : "Unable to delete client.");
+      setActionError(clientError instanceof Error ? clientError.message : "Unable to delete company.");
     }
   };
 
@@ -88,25 +88,25 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
     <>
       {!embedded && (
         <PageTitle
-          title="Clients"
-          subtitle="Customer balances, shipment history, invoices, and payment status."
+          title="Companies"
+          subtitle="Company balances, shipment history, invoices, and payment status."
         />
       )}
       <section className="filter-card">
         <div className="filter-toolbar">
           <div>
-            <h3>Clients</h3>
-            <p>Customer balances, shipment history, invoices, and payment status.</p>
+            <h3>Companies</h3>
+            <p>Company balances, shipment history, invoices, and payment status.</p>
           </div>
           {canManage && (
             <button className="btn-primary" onClick={openCreateDialog}>
-              Add Client
+              Add Company
             </button>
           )}
         </div>
         <div className="filter-grid filter-grid-primary">
           <label className="field">
-            <span>Search clients</span>
+            <span>Search companies</span>
             <div className="field-with-icon">
               <Search size={14} />
               <input
@@ -118,13 +118,13 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
           </label>
         </div>
       </section>
-      {loading && <EmptyState text="Loading clients..." />}
+      {loading && <EmptyState text="Loading companies..." />}
       {(error || actionError) && <EmptyState text={error || actionError} />}
       <div className="table-card">
         <div className="table-title">
           <div>
-            <h3>Client records</h3>
-            <p>Master customer list with shipment-linked financial context.</p>
+            <h3>Company records</h3>
+            <p>Master company list with shipment-linked financial context.</p>
           </div>
           <span className="status num">{visibleClients.length} rows</span>
         </div>
@@ -132,7 +132,7 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
           <table>
             <thead>
               <tr>
-                <th>Customer</th>
+                <th>Company</th>
                 <th>Contact</th>
                 <th className="num text-right">Shipments</th>
                 <th className="num text-right">Revenue</th>
@@ -168,15 +168,15 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
                   </td>
                   <td>
                     <div className="flex flex-wrap gap-2">
-                      <button className="icon-btn" aria-label="Open client documents" onClick={() => setDocumentClient(client)}>
+                      <button className="icon-btn" aria-label="Open company documents" onClick={() => setDocumentClient(client)}>
                         <Eye size={14} />
                       </button>
                       {canManage && (
                         <>
-                          <button className="icon-btn" onClick={() => openEditDialog(client)} aria-label="Edit client">
+                          <button className="icon-btn" onClick={() => openEditDialog(client)} aria-label="Edit company">
                             <Pencil size={14} />
                           </button>
-                          <button className="icon-btn" onClick={() => void removeClient(client)} aria-label="Delete client">
+                          <button className="icon-btn" onClick={() => void removeClient(client)} aria-label="Delete company">
                             <Trash2 size={14} />
                           </button>
                         </>
@@ -187,7 +187,7 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
               ))}
             </tbody>
           </table>
-          {visibleClients.length === 0 && <EmptyState text="No clients match the current search." />}
+          {visibleClients.length === 0 && <EmptyState text="No companies match the current search." />}
         </div>
       </div>
       {dialogOpen && (
@@ -205,7 +205,7 @@ export function ClientsPage({ shipments, clientPayments = [], embedded = false }
             shipments={documentClient.rows}
             limit={10}
             title="Recent Shipment Documents"
-            emptyState="No shipment documents found for this client yet."
+            emptyState="No shipment documents found for this company yet."
           />
         </Modal>
       )}
@@ -259,7 +259,7 @@ function ClientDialog({
 
   return (
     <Modal
-      title={client ? "Edit Client" : "Add Client"}
+      title={client ? "Edit Company" : "Add Company"}
       onClose={onClose}
       size="large"
       footer={
@@ -268,7 +268,7 @@ function ClientDialog({
             Cancel
           </button>
           <button className="btn-primary" form="client-form" type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save Client"}
+            {saving ? "Saving..." : "Save Company"}
           </button>
         </>
       }
@@ -276,8 +276,8 @@ function ClientDialog({
       <form id="client-form" className="form-layout" onSubmit={submit}>
         <section className="form-section">
           <div className="form-section-header">
-            <h3>Client Details</h3>
-            <p>Store the customer contact information used across shipments and billing.</p>
+            <h3>Company Details</h3>
+            <p>Store the company contact information used across shipments and billing.</p>
           </div>
           <div className="form-grid">
         <label className="field">

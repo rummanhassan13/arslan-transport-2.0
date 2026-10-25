@@ -1,9 +1,9 @@
 export function SolutionSection() {
   const steps = [
     "Track shipments from loading to delivery.",
-    "Manage clients, drivers, vehicles, and truck types.",
+    "Manage companies, drivers, vehicles, and truck types.",
     "Record expenses like Gate Pass, Fashah, NAQL, fuel, tolls, and repairs.",
-    "Monitor client payments, driver payments, pending balances, and profit.",
+    "Monitor company payments, driver payments, pending balances, and profit.",
     "Generate invoice and report workflows from structured data."
   ];
 

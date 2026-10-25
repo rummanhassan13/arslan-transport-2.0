@@ -26,7 +26,7 @@ export const SHIPMENT_ATTACHMENT_CATEGORY_LABELS: Record<ShipmentAttachmentCateg
   proof_of_delivery: "Proof of Delivery",
   invoice_support: "Invoice Support",
   driver_document: "Driver Document",
-  client_document: "Client Document",
+  client_document: "Company Document",
   other: "Other",
 };
 

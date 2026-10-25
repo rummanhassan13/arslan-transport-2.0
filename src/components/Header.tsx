@@ -11,7 +11,7 @@ import type { CurrencyCode } from "../constants/currencies";
 import type { CompanyProfileSettings, InvoiceSettings } from "../contexts/BusinessSettingsContext";
 import { EmptyState, Modal, StatusBadge } from "./ui";
 
-const PROFILE_ITEMS = ["Company Profile", "User & Roles", "Billing & Plan"] as const;
+const PROFILE_ITEMS = ["Business Profile", "User & Roles", "Billing & Plan"] as const;
 export type ProfileItem = (typeof PROFILE_ITEMS)[number];
 
 export function Header({
@@ -126,7 +126,7 @@ export function Header({
   const openSettings = () => {
     setDrawerOpen(false);
     setProfileOpen(false);
-    setProfilePanel("Company Profile");
+    setProfilePanel("Business Profile");
   };
 
   const logout = () => {
@@ -312,7 +312,7 @@ export function Header({
               className="bg-transparent border-none outline-none w-full text-ink text-[13px]"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search shipments, clients, invoices..."
+              placeholder="Search shipments, companies, invoices..."
             />
           </label>
         </div>
@@ -426,7 +426,7 @@ function BrandLockup({ logoUrl, companyName }: { logoUrl?: string; companyName: 
 }
 
 export function SettingsPanel({ panel, orgName, onClose }: { panel: ProfileItem; orgName: string; onClose: () => void }) {
-  if (panel === "Company Profile") return <CompanyProfilePanel orgName={orgName} onClose={onClose} />;
+  if (panel === "Business Profile") return <CompanyProfilePanel orgName={orgName} onClose={onClose} />;
   if (panel === "User & Roles") return <UserRolesPanel onClose={onClose} />;
 
   return <BillingPlanPanel onClose={onClose} />;
@@ -500,7 +500,7 @@ function CompanyProfilePanel({ orgName, onClose }: { orgName: string; onClose: (
         const compressedDataUrl = canvas.toDataURL(exportType, 0.85);
         update("logoUrl", compressedDataUrl);
       } catch (err) {
-        setLogoError("Unable to compress company logo.");
+        setLogoError("Unable to compress business logo.");
         console.error(err);
       } finally {
         URL.revokeObjectURL(imageUrl);
@@ -527,7 +527,7 @@ function CompanyProfilePanel({ orgName, onClose }: { orgName: string; onClose: (
       });
       setSaved(true);
     } catch (error) {
-      setLogoError(error instanceof Error ? error.message : "Unable to save company profile.");
+      setLogoError(error instanceof Error ? error.message : "Unable to save business profile.");
     }
   };
 
@@ -537,11 +537,11 @@ function CompanyProfilePanel({ orgName, onClose }: { orgName: string; onClose: (
         <span className="settings-panel-icon">
           <Building2 size={18} />
         </span>
-        <p>Company profile values are shared organization settings used by invoices and finance documents.</p>
+        <p>Business profile values are shared organization settings used by invoices and finance documents.</p>
       </div>
       <div className="settings-grid">
         <label className="field">
-          <span>Company name</span>
+          <span>Business name</span>
           <input value={form.companyName} onChange={(event) => update("companyName", event.target.value)} placeholder={orgName} />
         </label>
         <label className="field">
@@ -565,11 +565,11 @@ function CompanyProfilePanel({ orgName, onClose }: { orgName: string; onClose: (
           <input value={form.cityCountry} onChange={(event) => update("cityCountry", event.target.value)} placeholder="Karachi, Pakistan" />
         </label>
         <div className="field form-wide">
-          <span>Company logo</span>
+          <span>Business logo</span>
           <div className="logo-upload-row">
             <div className="logo-preview-box">
               {form.logoUrl ? (
-                <img src={form.logoUrl} alt="Company logo preview" />
+                <img src={form.logoUrl} alt="Business logo preview" />
               ) : (
                 <ImagePlus size={24} />
               )}

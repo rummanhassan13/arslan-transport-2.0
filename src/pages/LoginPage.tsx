@@ -41,7 +41,7 @@ export function LoginPage({
         <div className="auth-story-points">
           <span>Shipment operations</span>
           <span>Driver settlements</span>
-          <span>Client receivables</span>
+          <span>Company receivables</span>
         </div>
       </section>
       <section className="auth-card">

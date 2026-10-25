@@ -8,7 +8,7 @@ const workflowSteps = [
   },
   {
     number: "2",
-    title: "Assign client, driver, and vehicle",
+    title: "Assign company, driver, and vehicle",
     icon: UserPlus
   },
   {
@@ -18,7 +18,7 @@ const workflowSteps = [
   },
   {
     number: "4",
-    title: "Track client and driver payments",
+    title: "Track company and driver payments",
     icon: CreditCard
   },
   {

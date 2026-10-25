@@ -32,7 +32,7 @@ export function SettingsPage({ shipments }: { shipments: Shipment[] }) {
   const canManageVehicleRows = env.demoMode || canManageVehicles(role);
 
   const settings = [
-    ["Company Profile", "Arslan Transport name, contact, tax and billing details."],
+    ["Business Profile", "Arslan Transport name, contact, tax and billing details."],
     ["Invoice Sequence", "Automatic invoice number sequence configuration without prefix."],
     ["Expense Categories", "Gate Pass, Fashah, NAQL, Advance, loading charges."],
     ["Payment Statuses", "Paid, Pending, Partially Paid, Overdue, Advance Paid."],

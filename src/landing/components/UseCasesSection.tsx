@@ -5,7 +5,7 @@ export function UseCasesSection() {
     "Small transport companies replacing Excel",
     "Fleet operators tracking driver payments",
     "Logistics teams managing shipment expenses",
-    "Companies needing client invoice visibility",
+    "Transporters needing company invoice visibility",
     "Owners who want profit reports without manual calculations"
   ];
 

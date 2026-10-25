@@ -19,8 +19,8 @@ const faqs = [
     answer: "Yes, you can track driver payables, advances, settlements, and pending balances directly within the software."
   },
   {
-    question: "Can I manage client invoices and payments?",
-    answer: "Yes, TransportFlow allows you to track client invoices, monitor pending balances, and record payments."
+    question: "Can I manage company invoices and payments?",
+    answer: "Yes, TransportFlow allows you to track company invoices, monitor pending balances, and record payments."
   },
   {
     question: "Does TransportFlow support shipment expenses like Gate Pass, Fashah, and NAQL?",

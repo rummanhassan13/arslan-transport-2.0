@@ -44,7 +44,7 @@ describe("AddShipmentModal", () => {
       />,
     );
 
-    expect(optionValues(screen.getByLabelText("Customer") as HTMLSelectElement)).toEqual([
+    expect(optionValues(screen.getByLabelText("Company") as HTMLSelectElement)).toEqual([
       "",
       "__add_new__",
       "Saved Client",
@@ -59,8 +59,6 @@ describe("AddShipmentModal", () => {
       "__add_new__",
       "Saved Destination",
     ]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     const driverSelect = screen.getByLabelText("Driver Name") as HTMLSelectElement;
     expect(optionValues(driverSelect)).toEqual([

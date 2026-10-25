@@ -58,18 +58,18 @@ export function FinanceClaritySection() {
             Know what is paid, pending, and profitable.
           </h2>
           <p className="text-[16.5px] leading-relaxed text-[#4d5663]">
-            TransportFlow is designed around payment ledgers, not just manual status labels. Client payment status comes from invoice totals minus actual payments, and driver balances reflect payable amounts, expenses, advances, and settlements.
+            TransportFlow is designed around payment ledgers, not just manual status labels. Company payment status comes from invoice totals minus actual payments, and driver balances reflect payable amounts, expenses, advances, and settlements.
           </p>
         </div>
 
         <div id="finance-counters" className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {/* Client Receivables */}
+          {/* Company Receivables */}
           <div className="rounded-[16px] border border-[#e3e8ef] bg-white p-7 shadow-[0_8px_24px_rgba(14,17,22,0.04)] reveal delay-100">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#ecf1f7] text-[#486688]">
                 <ArrowDownLeft size={20} strokeWidth={2} />
               </div>
-              <h3 className="text-[13.5px] font-[700] uppercase tracking-wider text-[#8993a3]">Client Receivables</h3>
+              <h3 className="text-[13.5px] font-[700] uppercase tracking-wider text-[#8993a3]">Company Receivables</h3>
             </div>
             <div className="text-[36px] font-[700] font-['Inter_Tight'] tracking-tight text-[#0e1116] mb-1">
               <Counter end={145200} isVisible={isVisible} /> <span className="text-[16px] text-[#8993a3] font-[600] ml-1">SAR</span>

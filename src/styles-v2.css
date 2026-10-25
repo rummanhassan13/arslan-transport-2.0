@@ -44,6 +44,13 @@
   --danger: #f97066;
 }
 
+/* Aliases still referenced by older utility classes in components. */
+:root,
+[data-theme="dark"] {
+  --danger-color: var(--danger);
+  --bg-hover: var(--surface-soft);
+}
+
 html {
   background: var(--app-bg);
   scroll-behavior: smooth;
@@ -693,16 +700,16 @@ html[data-sidebar-pinned="false"] .v2-topbar {
 
 .summary-card {
   position: relative;
-  min-height: 132px;
+  min-height: 0;
   overflow: hidden;
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 12px;
+  padding: 12px 16px;
 }
 
 .summary-card::before {
   position: absolute;
-  top: 21px;
-  left: 20px;
+  top: 16px;
+  left: 16px;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -715,20 +722,28 @@ html[data-sidebar-pinned="false"] .v2-topbar {
 }
 
 .summary-card p {
-  margin: 0 0 14px;
-  padding-left: 16px;
+  display: block;
+  margin: 0 0 6px;
+  padding-left: 15px;
   color: var(--ink-3);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.075em;
+  line-height: 14px;
   text-transform: uppercase;
+}
+
+/* The card's own ::before is the status dot; drop the legacy inline one. */
+.summary-card p::before {
+  display: none;
 }
 
 .summary-card strong {
   display: block;
+  margin-top: 0;
   color: var(--ink);
   font-family: "Inter Tight", Inter, sans-serif;
-  font-size: clamp(22px, 2vw, 27px);
+  font-size: clamp(19px, 1.6vw, 22px);
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.1;
@@ -736,9 +751,9 @@ html[data-sidebar-pinned="false"] .v2-topbar {
 
 .summary-card > span {
   display: block;
-  margin-top: 11px;
+  margin-top: 4px;
   color: var(--ink-3);
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 .section-card {
@@ -1213,6 +1228,8 @@ html[data-sidebar-pinned="false"] .v2-topbar {
 
 .modal-header {
   min-height: 68px;
+  align-items: center;
+  gap: 12px;
   border-bottom: 1px solid var(--line-soft);
   background: var(--surface);
   padding: 0 22px;
@@ -1235,6 +1252,151 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   border-top: 1px solid var(--line-soft);
   background: var(--surface);
   padding: 12px 22px;
+}
+
+.expense-treatment-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.expense-driver-pick {
+  margin-top: 10px;
+  max-width: 320px;
+}
+
+.expense-notes-receipt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.expense-notes-receipt-row textarea {
+  min-height: 84px;
+}
+
+.expense-receipt-box {
+  display: flex;
+  min-height: 84px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.expense-receipt-box .table-action {
+  cursor: pointer;
+}
+
+.expense-receipt-box small {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.expense-receipt-file {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.expense-receipt-file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-receipt-file button {
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .expense-treatment-options,
+  .expense-notes-receipt-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.attachment-upload-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.4fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.attachment-upload-row .btn-primary {
+  height: 40px;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .attachment-upload-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shipment-driver-leg {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+}
+
+.shipment-driver-leg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.shipment-driver-leg-header h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.shipment-driver-leg-remove {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shipment-driver-leg-remove:hover {
+  text-decoration: underline;
+}
+
+.shipment-add-driver-link {
+  display: inline-flex;
+  justify-self: start;
+  align-self: flex-start;
+  width: auto;
+  margin-top: 10px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shipment-add-driver-link:hover {
+  text-decoration: underline;
 }
 
 .shipment-form-steps {
@@ -2079,27 +2241,27 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   }
 
   .summary-card {
-    min-height: 112px;
-    padding: 15px;
+    min-height: 0;
+    padding: 11px 13px;
   }
 
   .summary-card::before {
-    top: 17px;
-    left: 15px;
+    top: 14px;
+    left: 13px;
   }
 
   .summary-card p {
-    margin-bottom: 12px;
-    padding-left: 14px;
+    margin-bottom: 5px;
+    padding-left: 13px;
     font-size: 8.5px;
   }
 
   .summary-card strong {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .summary-card > span {
-    margin-top: 8px;
+    margin-top: 3px;
     font-size: 9.5px;
   }
 
@@ -2281,7 +2443,7 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   }
 
   .summary-card {
-    min-height: 105px;
+    min-height: 0;
   }
 }
 

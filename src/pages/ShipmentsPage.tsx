@@ -81,23 +81,16 @@ export function ShipmentsPage({
   ).length;
 
   const sortedFiltered = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      const parseInvoice = (inv: string) => {
-        const match = inv.trim().match(/^(.*?)(-?\d+)$/);
-        if (match) {
-          return { prefix: match[1], num: parseInt(match[2], 10) };
-        }
-        return { prefix: inv, num: 0 };
-      };
-
-      const parsedA = parseInvoice(a.invoice || "");
-      const parsedB = parseInvoice(b.invoice || "");
-
-      if (parsedA.prefix !== parsedB.prefix) {
-        return parsedB.prefix.localeCompare(parsedA.prefix);
-      }
-      return parsedB.num - parsedA.num;
-    });
+    // Newest first: highest invoice number on top, regardless of prefix (e.g. "AT-1005" vs "1008").
+    const invoiceNumber = (inv: string) => {
+      const match = inv.trim().match(/(\d+)\D*$/);
+      return match ? parseInt(match[1], 10) : -1;
+    };
+    return [...filtered].sort((a, b) =>
+      invoiceNumber(b.invoice || "") - invoiceNumber(a.invoice || "") ||
+      (b.createdAt ?? "").localeCompare(a.createdAt ?? "") ||
+      b.date.localeCompare(a.date),
+    );
   }, [filtered]);
   const removeShipment = async (shipmentId: string) => {
     setActionError("");
@@ -231,7 +224,7 @@ function ShipmentTable({
           </div>
 
           <select className="compact-select" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
-            <option value="">All Customers</option>
+            <option value="">All Companies</option>
             {activeClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
 
@@ -261,7 +254,7 @@ function ShipmentTable({
             <div className="shipment-mobile-card-meta">
               <span><UserRound size={13} /> {row.assignments && row.assignments.length > 1 ? `${row.driverName} + ${row.assignments.length - 1}` : row.driverName}</span>
               <span><TruckIcon size={13} /> {row.vehicleNo}</span>
-              <StatusBadge status={row.clientPaymentStatus} label={`Client ${row.clientPaymentStatus}`} />
+              <StatusBadge status={row.clientPaymentStatus} label={`Company ${row.clientPaymentStatus}`} />
               <StatusBadge status={row.driverPaymentStatus} label={`Driver ${row.driverPaymentStatus}`} />
             </div>
             <div className="shipment-mobile-card-footer">
@@ -289,7 +282,7 @@ function ShipmentTable({
           <thead>
             <tr>
               <th>Shipment</th>
-              <th>Client & Route</th>
+              <th>Company & Route</th>
               <th>Assignment</th>
               <th className="num text-right">Company Total</th>
               <th className="num text-right">Driver Total</th>
@@ -325,7 +318,7 @@ function ShipmentTable({
                 <td>
                   <div className="flex flex-col items-start gap-1.5">
                     <StatusBadge status={row.invoiceStatus} label={`Invoice · ${row.invoiceStatus}`} />
-                    <StatusBadge status={row.clientPaymentStatus} label={`Client · ${row.clientPaymentStatus}`} />
+                    <StatusBadge status={row.clientPaymentStatus} label={`Company · ${row.clientPaymentStatus}`} />
                     <StatusBadge status={row.driverPaymentStatus} label={`Driver · ${row.driverPaymentStatus}`} />
                   </div>
                 </td>
@@ -344,7 +337,7 @@ function ShipmentTable({
                       <>
                         <button 
                           className="icon-btn text-ink-3 hover:text-ink"
-                          onClick={() => onEditShipment(row)}
+                          onClick={(e) => { e.stopPropagation(); onEditShipment(row); }}
                           title="Edit Shipment"
                           aria-label="Edit Shipment"
                           type="button"
@@ -353,7 +346,7 @@ function ShipmentTable({
                         </button>
                         <button 
                           className="icon-btn text-ink-3 hover:text-red-500"
-                          onClick={() => confirmDelete(row)}
+                          onClick={(e) => { e.stopPropagation(); confirmDelete(row); }}
                           title="Delete Shipment"
                           aria-label="Delete Shipment"
                           type="button"

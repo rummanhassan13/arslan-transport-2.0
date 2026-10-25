@@ -120,16 +120,13 @@ async function runViewport(browser, name, device) {
     if (name === "desktop") {
       await page.getByRole("button", { name: "New shipment", exact: true }).click();
       const invoiceReference = await page.getByRole("textbox", { name: "Invoice", exact: true }).inputValue();
-      await page.getByRole("combobox", { name: "Customer", exact: true }).selectOption({ index: 1 });
-      await page.getByRole("combobox", { name: "Loading Point", exact: true }).selectOption({ index: 1 });
-      await page.getByRole("combobox", { name: "Destination", exact: true }).selectOption({ index: 1 });
-      await page.getByRole("button", { name: "Continue", exact: true }).click();
-      await page.getByRole("combobox", { name: "Driver Name", exact: true }).selectOption({ index: 1 });
-      await page.getByRole("textbox", { name: "From Location", exact: true }).fill("Port Qasim");
-      await page.getByRole("textbox", { name: "To Location", exact: true }).fill("Lahore");
-      await page.getByRole("spinbutton", { name: "Driver Rate", exact: true }).fill("1000");
-      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      // One-page form; option index 1 is "Add new...", so saved values start at index 2.
+      await page.getByRole("combobox", { name: "Company", exact: true }).selectOption({ index: 2 });
+      await page.getByRole("combobox", { name: "Loading Point", exact: true }).selectOption({ index: 2 });
+      await page.getByRole("combobox", { name: "Destination", exact: true }).selectOption({ index: 2 });
       await page.getByRole("spinbutton", { name: "Company Rate", exact: true }).fill("1500");
+      await page.getByRole("combobox", { name: "Driver Name", exact: true }).selectOption({ index: 2 });
+      await page.getByRole("spinbutton", { name: "Driver Rate", exact: true }).fill("1000");
       await page.getByRole("button", { name: "Save Shipment", exact: true }).click();
       await page.getByText(new RegExp(`Shipment saved and invoice ${invoiceReference} generated automatically\\.`)).waitFor({ state: "visible" });
       const generatedInvoiceRow = page.getByRole("row").filter({ hasText: invoiceReference });

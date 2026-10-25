@@ -36,7 +36,8 @@ type ShellProps = {
   openShipment: () => void;
 };
 
-const SIDEBAR_PINNED_STORAGE_KEY = "transportflow.sidebarPinned";
+// v2: the sidebar now starts collapsed; the old key auto-saved "true" for everyone.
+const SIDEBAR_PINNED_STORAGE_KEY = "transportflow.sidebarPinned.v2";
 
 const primaryItems: { view: View; label: string; icon: typeof LayoutDashboard }[] = [
   { view: "Dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -45,7 +46,7 @@ const primaryItems: { view: View; label: string; icon: typeof LayoutDashboard }[
 ];
 
 const moreItems: { view: View; label: string; description: string; icon: typeof LayoutDashboard }[] = [
-  { view: "Directory", label: "Directory", description: "Clients, drivers and fleet", icon: FolderKanban },
+  { view: "Directory", label: "Directory", description: "Companies, drivers and fleet", icon: FolderKanban },
   { view: "Reports", label: "Reports", description: "Operational and finance exports", icon: FileSpreadsheet },
 ];
 
@@ -75,8 +76,8 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [settingsPanel, setSettingsPanel] = useState<ProfileItem | null>(null);
   const [sidebarPinned, setSidebarPinned] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(SIDEBAR_PINNED_STORAGE_KEY) !== "false";
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SIDEBAR_PINNED_STORAGE_KEY) === "true";
   });
   const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
   const sidebarTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -252,7 +253,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
         </nav>
 
         <div className="v2-sidebar-footer">
-          <button className="v2-nav-item" onClick={() => openSettings("Company Profile")} type="button">
+          <button className="v2-nav-item" onClick={() => openSettings("Business Profile")} type="button">
             <Settings size={18} />
             <span>Settings</span>
           </button>
@@ -338,8 +339,8 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
                     </select>
                   </label>
                 )}
-                <button onClick={() => openSettings("Company Profile")} role="menuitem" type="button">
-                  <Building2 size={16} /> Company profile
+                <button onClick={() => openSettings("Business Profile")} role="menuitem" type="button">
+                  <Building2 size={16} /> Business profile
                 </button>
 
                 <button onClick={toggleTheme} role="menuitem" type="button">
@@ -384,7 +385,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search reference, client, driver or route"
+              placeholder="Search reference, company, driver or route"
               autoFocus
             />
           </label>
@@ -395,7 +396,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
               <strong>{orgName}</strong>
               <span>{role || "Demo workspace"}</span>
             </div>
-            <button onClick={() => openSettings("Company Profile")} type="button"><Building2 size={17} /> Company profile</button>
+            <button onClick={() => openSettings("Business Profile")} type="button"><Building2 size={17} /> Business profile</button>
 
             <button onClick={toggleTheme} type="button">
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
@@ -454,9 +455,9 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
                   </button>
                 );
               })}
-              <button className="v2-sheet-item" onClick={() => openSettings("Company Profile")} type="button">
+              <button className="v2-sheet-item" onClick={() => openSettings("Business Profile")} type="button">
                 <span className="v2-sheet-icon"><Settings size={20} /></span>
-                <span><strong>Settings</strong><small>Company, currency and invoice preferences</small></span>
+                <span><strong>Settings</strong><small>Business, currency and invoice preferences</small></span>
               </button>
             </div>
           )}

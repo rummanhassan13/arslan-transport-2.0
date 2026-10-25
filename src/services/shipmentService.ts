@@ -77,7 +77,7 @@ function toShipment(row: ShipmentRow, index = 0): Shipment {
     invoice: row.invoice_reference || row.shipment_no || "",
     loadingPoint: row.loading_point,
     destination: row.destination,
-    customer: relationName(row.clients) || "Unassigned Client",
+    customer: relationName(row.clients) || "Unassigned Company",
     driverName: relationName(row.drivers) || "Unassigned Driver",
     vehicleNo: vehicleNumber(row.vehicles) || "-",
     truckType: relationName(row.truck_types) || "-",
@@ -119,7 +119,7 @@ function toShipment(row: ShipmentRow, index = 0): Shipment {
     truckTypeName: relationName(row.truck_types),
     loadingPoint: row.loading_point,
     destination: row.destination,
-    customer: relationName(row.clients) || "Unassigned Client",
+    customer: relationName(row.clients) || "Unassigned Company",
     cellNo: "",
     companyRate: Number(row.company_rate),
     driverRate: Number(row.driver_rate),
@@ -308,7 +308,7 @@ export async function softDeleteShipment(organizationId: string, shipmentId: str
   const supabase = requireSupabaseClient();
   const userId = await getCurrentUserId();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("shipments")
     .update({
       deleted_at: new Date().toISOString(),
@@ -316,9 +316,12 @@ export async function softDeleteShipment(organizationId: string, shipmentId: str
     })
     .eq("id", shipmentId)
     .eq("organization_id", organizationId)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id");
 
   if (error) throw new Error(`Unable to delete shipment: ${error.message}`);
+  // Row-level security can silently match zero rows; surface that instead of pretending it worked.
+  if (!data?.length) throw new Error("Unable to delete shipment: it was not found or your role is not allowed to delete shipments.");
 }
 
 export async function transitionShipmentStatus(

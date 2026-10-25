@@ -107,11 +107,9 @@ export function useShipmentAttachments(shipmentIdOrIds?: string | string[]) {
     async (input: ShipmentAttachmentInput) => {
       if (env.demoMode) {
         const created = createDemoAttachment(input);
-        setAttachments((current) => {
-          const next = [created, ...current];
-          writeDemoShipmentAttachments(next);
-          return next;
-        });
+        // Persist outside the state updater: the caller (e.g. a dialog) may unmount before it runs.
+        writeDemoShipmentAttachments([created, ...readDemoShipmentAttachments()]);
+        setAttachments((current) => [created, ...current]);
         notifyShipmentAttachmentsChanged();
         return created;
       }

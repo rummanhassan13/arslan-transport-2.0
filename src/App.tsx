@@ -413,11 +413,13 @@ function DemoApp() {
                 paymentType: "advance",
                 paymentDate: createdShipment.date,
                 idempotencyKey: `initial-advance-${createdShipment.id}-${createdAssignment?.id ?? index}`,
-              });
+              }, createdShipment);
             }
           }
-          await refreshPayments();
         }
+        // In Supabase mode the create RPC writes initial advances to driver_payments,
+        // so the local ledger must be reloaded for the advance to show on the shipment.
+        await refreshPayments().catch(() => undefined);
         setShipmentDialog(false);
         setToast(`Shipment saved and invoice ${generatedInvoice.invoiceNumber} generated automatically.`);
       }

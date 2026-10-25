@@ -7,6 +7,9 @@ test-results/
 vite.config.js
 vite.config.d.ts
 .codex/
+.claude/
+# Local Google Sheets invoice tool (kept outside the app repo for now)
+tools/google-sheets-invoice/
 .env
 .env.local
 .env.*.local
