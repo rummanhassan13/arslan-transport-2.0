@@ -177,7 +177,8 @@ export async function buildShipmentPrintBundle({
       throwIfAborted(signal);
 
       if (attachment.fileType === "application/pdf") {
-        const source = await PDFDocument.load(bytes);
+        // Many scanned/bank PDFs carry owner-password "encryption" that only restricts editing; still merge them.
+        const source = await PDFDocument.load(bytes, { ignoreEncryption: true });
         const copiedPages = await output.copyPages(source, source.getPageIndices());
         copiedPages.forEach((page) => output.addPage(page));
         continue;

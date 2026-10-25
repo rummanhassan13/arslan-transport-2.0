@@ -69,7 +69,9 @@ function corsHeaders(req: Request) {
     if (
       allowedOrigins.includes(origin) ||
       extraOrigins.includes(origin) ||
-      /^https?:\/\/localhost:\d+$/.test(origin)
+      /^https?:\/\/localhost:\d+$/.test(origin) ||
+      // Vercel production alias and per-deployment/branch previews of this project (team-scoped suffix).
+      /^https:\/\/arslan-transport-2-0(?:-[a-z0-9-]+-arslan-transport)?\.vercel\.app$/.test(origin)
     ) {
       allowedOrigin = origin;
     }
