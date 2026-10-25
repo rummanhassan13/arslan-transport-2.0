@@ -403,7 +403,7 @@ export function ShipmentSummaryModal({
                     <span className="text-xs text-[var(--ink-3)] uppercase font-semibold mb-2 block">Driver Breakdowns</span>
                     <div className="flex flex-col gap-3">
                       {shipment.assignments.map((assignment, idx) => (
-                        <div key={assignment.id ?? `${assignment.driverId ?? "driver"}-${idx}`} className="grid grid-cols-4 gap-2 text-sm bg-white p-2 rounded border border-[var(--line-soft)]">
+                        <div key={assignment.id ?? `${assignment.driverId ?? "driver"}-${idx}`} className="grid grid-cols-4 gap-2 text-sm bg-[var(--surface)] text-[var(--ink)] p-2 rounded border border-[var(--line-soft)]">
                           <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Driver</span><span className="font-semibold truncate" title={assignment.driverName}>{assignment.driverName}</span></div>
                           <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Rate</span><span className="font-semibold truncate">{money(assignment.driverRate)}</span></div>
                           <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Paid</span><span className="font-semibold truncate">{money(assignment.totalPaid || 0)}</span></div>
@@ -430,7 +430,7 @@ export function ShipmentSummaryModal({
                     <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Shipment Status</span>
                     {onUpdateShipmentStatus && canManageOperations && nextOperationalStatuses.length > 0 ? (
                       <select
-                        className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-white w-full"
+                        className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
                         value={shipment.status ?? "pending"}
                         onChange={(event) => onUpdateShipmentStatus(shipment.id, event.target.value as NonNullable<Shipment["status"]>)}
                       >
@@ -445,7 +445,7 @@ export function ShipmentSummaryModal({
                     <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Invoice Status</span>
                     {onUpdateInvoiceStatus && canManageFinance ? (
                       <select
-                        className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-white w-full"
+                        className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
                         value={shipment.invoiceStatus || "Draft"}
                         onChange={(e) => onUpdateInvoiceStatus(shipment.id, e.target.value as any)}
                       >
