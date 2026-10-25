@@ -118,10 +118,13 @@ Run `typecheck`, `lint`, `test`, and `build` before opening or merging a pull re
 
 ## Deployment
 
+The frontend is deployed on Vercel from this repository.
+
 1. Apply any new files in `supabase/migrations/` to the Supabase project, in order, before deploying frontend code that depends on them.
-2. Build with `npm run build`. The output in `dist/` contains both the landing page and `/app/`.
-3. In the hosting provider's environment settings, set `VITE_DEMO_MODE=false`, `VITE_SUPABASE_URL`, and the publishable or anon key.
+2. Vercel builds with `npm run build`; the output in `dist/` contains both the landing page and `/app/`.
+3. In the Vercel project's environment variables, set `VITE_DEMO_MODE=false`, `VITE_SUPABASE_URL`, and the publishable or anon key.
 4. Deploy the Supabase Edge Functions in `supabase/functions/` when they change.
+5. Merge to `main` through a pull request, then verify the live app after the deployment finishes.
 
 The [logic remediation handoff](docs/quality/LOGIC_REMEDIATION_HANDOFF.md) describes the deployment sequence, quality gates, and rollback boundary.
 
