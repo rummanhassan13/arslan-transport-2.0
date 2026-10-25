@@ -7,7 +7,6 @@ import { money, unique, uniqueByValues } from "../utils/formatters";
 import { Modal, SelectField, SelectOrNewField, SummaryCard } from "./ui";
 import { InvoicePrintTemplate } from "./InvoicePrintTemplate";
 import { useBusinessSettings } from "../hooks/useBusinessSettings";
-import { ShipmentAttachmentManager } from "./shipments/ShipmentAttachmentManager";
 
 export function AddShipmentModal({
   editShipment,
@@ -1119,8 +1118,6 @@ export function PaymentModal({
   const [shipmentId, setShipmentId] = useState(initialShipmentId || "");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [paymentMethod, setPaymentMethod] = useState("Bank Transfer");
-  const [referenceNo, setReferenceNo] = useState("");
   const [paymentType, setPaymentType] = useState<DriverPaymentInput["paymentType"]>("settlement");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1163,8 +1160,6 @@ export function PaymentModal({
               shipmentId: invoice?.shipmentId ?? shipment?.id ?? null,
               amount: numericAmount,
               paymentDate,
-              paymentMethod,
-              referenceNo,
               notes,
             },
           }
@@ -1177,8 +1172,6 @@ export function PaymentModal({
               amount: numericAmount,
               paymentType,
               paymentDate,
-              paymentMethod,
-              referenceNo,
               notes,
             },
           };
@@ -1317,27 +1310,8 @@ export function PaymentModal({
             )}
             <label className="field"><span>Amount</span><input type="number" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
             <label className="field"><span>Payment Date</span><input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required /></label>
-            <label className="field"><span>Payment Method</span><input value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} /></label>
-            <label className="field"><span>Reference No</span><input value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Check #, Trx ID" /></label>
             <label className="field form-wide"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
           </div>
-        </section>
-        <section className="form-section">
-          <div className="form-section-header">
-            <h3>Receipts & Documents</h3>
-            <p>Upload a receipt or proof of payment. It will be linked to the selected shipment.</p>
-          </div>
-          {shipmentId ? (
-            <ShipmentAttachmentManager
-              shipmentId={shipmentId}
-              defaultCategory={type === "Client" ? "client_document" : "receipt"}
-              compact
-            />
-          ) : (
-            <div className="text-sm text-[var(--ink-3)] p-4 border border-dashed border-[var(--line-soft)] rounded-[var(--radius)] text-center">
-              Select a shipment above to upload payment documents.
-            </div>
-          )}
         </section>
       </form>
     </Modal>

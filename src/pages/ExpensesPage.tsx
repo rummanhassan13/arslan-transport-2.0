@@ -1,5 +1,5 @@
 import { useState, useMemo, type FormEvent } from "react";
-import { Paperclip, Pencil, SlidersHorizontal, Trash2, UploadCloud, X } from "lucide-react";
+import { Paperclip, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Card, EmptyState, KpiGrid, Modal, PageTitle, SelectField, StatusBadge } from "../components/ui";
 import { ShipmentAttachmentManager } from "../components/shipments/ShipmentAttachmentManager";
 import type {
@@ -23,7 +23,6 @@ import { EXPENSE_CATEGORIES } from "../constants/expenses";
 import { getAttachmentCategoryForExpense } from "../constants/attachmentCategories";
 import { useAuth } from "../hooks/useAuth";
 import { useShipmentAttachments } from "../hooks/useShipmentAttachments";
-import { createShipmentAttachmentUploadUrl, uploadFileToSignedUrl } from "../services/shipmentAttachments";
 import { env } from "../config/env";
 import { canApproveExpenses, canManageAttachments, canManageExpenses } from "../utils/permissions";
 
@@ -88,11 +87,11 @@ export function ExpensesPage({
     try {
       if (dialogExpense && dialogExpense !== "new") {
         const updated = await updateExpense(dialogExpense.id, input);
-        if (updated) setDialogExpense(updated);
+        if (updated) setDialogExpense(null);
         return updated ?? undefined;
       }
       const created = await createExpense(input);
-      setDialogExpense(created);
+      setDialogExpense(null);
       return created;
     } catch (expenseError) {
       setActionError(expenseError instanceof Error ? expenseError.message : "Unable to save expense.");
@@ -371,7 +370,6 @@ export function ExpenseDialog({
     clientBillAmount: number | "";
   };
 
-  const [savedExpense, setSavedExpense] = useState<ShipmentExpense | null>(expense);
   const [saveMessage, setSaveMessage] = useState("");
   const expenseActualCost = expense ? getExpenseActualCost(expense) : "";
   const [form, setForm] = useState<ExpenseFormState>({
@@ -401,8 +399,6 @@ export function ExpenseDialog({
   });
   const combinedCategories = Array.from(new Set([...expenseCategoryOptions, ...customCategories]));
   const { activeOrganization } = useAuth();
-  const { createAttachmentMetadata } = useShipmentAttachments(form.shipmentId);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const selectedShipment = shipments.find((shipment) => shipment.id === form.shipmentId);
 
   const submit = async (event: FormEvent) => {
@@ -441,45 +437,7 @@ export function ExpenseDialog({
         includedInInvoice: Boolean(form.clientBillable && form.includedInInvoice),
         driverReimbursable: Boolean(form.driverReimbursable),
       });
-      if (saved) {
-        setSavedExpense(saved);
-        if (selectedFile) {
-          setSaveMessage("Uploading receipt...");
-          try {
-            const metadata: any = {
-              shipmentId: saved.shipmentId,
-              shipmentExpenseId: saved.id,
-              category: getAttachmentCategoryForExpense(saved.category) || "other",
-              fileName: selectedFile.name,
-              fileType: selectedFile.type,
-              fileSize: selectedFile.size,
-              storageKey: "",
-              notes: null,
-            };
-            if (!env.demoMode) {
-               const urlRes = await createShipmentAttachmentUploadUrl({
-                 shipmentId: saved.shipmentId,
-                 shipmentExpenseId: saved.id,
-                 category: metadata.category,
-                 fileName: selectedFile.name,
-                 fileType: selectedFile.type,
-                 fileSize: selectedFile.size,
-               });
-               await uploadFileToSignedUrl(selectedFile, urlRes.signedUploadUrl, { "Content-Type": selectedFile.type });
-               metadata.storageKey = urlRes.storageKey;
-            } else {
-               metadata.storageKey = `demo/${saved.shipmentId}/${selectedFile.name}`;
-            }
-            await createAttachmentMetadata(metadata);
-            setSaveMessage("Expense and receipt saved successfully.");
-            setSelectedFile(null);
-          } catch(err) {
-            setSaveMessage("Expense saved, but receipt upload failed. You can try uploading it below.");
-          }
-        } else {
-          setSaveMessage("Expense saved. Receipts can now be linked to this expense.");
-        }
-      }
+      if (saved) setSaveMessage("Expense saved.");
     } finally {
       setSaving(false);
     }
@@ -732,41 +690,6 @@ export function ExpenseDialog({
         </label>
         {error && <p className="form-error">{error}</p>}
         {saveMessage && <p className="inline-alert">{saveMessage}</p>}
-        </section>
-        <section className="form-section">
-          <div className="form-section-header">
-            <h3>Receipts & Documents</h3>
-            <p>Attach the proof of payment to this expense.</p>
-          </div>
-          {savedExpense ? (
-            <ShipmentAttachmentManager
-              shipmentId={savedExpense.shipmentId}
-              shipmentExpenseId={savedExpense.id}
-              defaultCategory={getAttachmentCategoryForExpense(savedExpense.category)}
-              linkedExpenses={[savedExpense]}
-              readOnly={!canManageAttachments}
-              compact
-            />
-          ) : (
-            <div className="upload-box mt-2">
-              <UploadCloud size={22} />
-              <strong>Expense receipt upload</strong>
-              {selectedFile ? (
-                <div className="flex justify-between items-center w-full max-w-sm mt-3 bg-[var(--bg-hover)] p-2 rounded border border-[var(--line-soft)]">
-                  <span className="truncate font-medium text-sm">{selectedFile.name}</span>
-                  <button type="button" className="text-xs text-[var(--ink-3)] hover:text-[var(--danger-color)] px-2" onClick={() => setSelectedFile(null)} aria-label="Remove file"><X size={14} /></button>
-                </div>
-              ) : (
-                <label className="table-action mt-3 cursor-pointer inline-flex items-center gap-1.5 font-semibold text-xs">
-                  <UploadCloud size={14} /> Select file
-                  <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) setSelectedFile(f);
-                  }} />
-                </label>
-              )}
-            </div>
-          )}
         </section>
       </form>
     </Modal>
