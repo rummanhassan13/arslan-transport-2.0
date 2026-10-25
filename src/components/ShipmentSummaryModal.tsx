@@ -75,7 +75,7 @@ export function ShipmentSummaryModal({
   }, [expenses, shipment.id]);
 
   // Load attachments for this shipment
-  const { attachments, loading: loadingAttachments, refreshAttachments } = useShipmentAttachments(shipment.id);
+  const { attachments, loading: loadingAttachments } = useShipmentAttachments(shipment.id);
 
 
   const financials = useMemo(() => {
@@ -116,17 +116,11 @@ export function ShipmentSummaryModal({
     setExpenseError("");
     try {
       if (expenseDialog && expenseDialog !== "new") {
+        // The dialog closes itself once any receipt upload has finished.
         const updated = await updateExpense(expenseDialog.id, input);
-        if (updated) {
-          setExpenseDialog(null);
-          void refreshAttachments();
-        }
         return updated ?? undefined;
       } else {
-        const created = await createExpense(input);
-        setExpenseDialog(null);
-        void refreshAttachments();
-        return created;
+        return await createExpense(input);
       }
     } catch (err) {
       setExpenseError(err instanceof Error ? err.message : "Unable to save expense.");

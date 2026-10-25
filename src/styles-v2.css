@@ -1254,6 +1254,79 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   padding: 12px 22px;
 }
 
+.expense-treatment-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.expense-driver-pick {
+  margin-top: 10px;
+  max-width: 320px;
+}
+
+.expense-notes-receipt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.expense-notes-receipt-row textarea {
+  min-height: 84px;
+}
+
+.expense-receipt-box {
+  display: flex;
+  min-height: 84px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.expense-receipt-box .table-action {
+  cursor: pointer;
+}
+
+.expense-receipt-box small {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.expense-receipt-file {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.expense-receipt-file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-receipt-file button {
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .expense-treatment-options,
+  .expense-notes-receipt-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .attachment-upload-row {
   display: grid;
   grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.4fr) auto;

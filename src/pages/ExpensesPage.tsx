@@ -1,5 +1,5 @@
 import { useState, useMemo, type FormEvent } from "react";
-import { Paperclip, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Paperclip, Pencil, SlidersHorizontal, Trash2, UploadCloud, X } from "lucide-react";
 import { Card, EmptyState, KpiGrid, Modal, PageTitle, SelectField, StatusBadge } from "../components/ui";
 import { ShipmentAttachmentManager } from "../components/shipments/ShipmentAttachmentManager";
 import type {
@@ -23,6 +23,7 @@ import { EXPENSE_CATEGORIES } from "../constants/expenses";
 import { getAttachmentCategoryForExpense } from "../constants/attachmentCategories";
 import { useAuth } from "../hooks/useAuth";
 import { useShipmentAttachments } from "../hooks/useShipmentAttachments";
+import { createShipmentAttachmentUploadUrl, uploadFileToSignedUrl } from "../services/shipmentAttachments";
 import { env } from "../config/env";
 import { canApproveExpenses, canManageAttachments, canManageExpenses } from "../utils/permissions";
 
@@ -87,12 +88,9 @@ export function ExpensesPage({
     try {
       if (dialogExpense && dialogExpense !== "new") {
         const updated = await updateExpense(dialogExpense.id, input);
-        if (updated) setDialogExpense(null);
         return updated ?? undefined;
       }
-      const created = await createExpense(input);
-      setDialogExpense(null);
-      return created;
+      return await createExpense(input);
     } catch (expenseError) {
       setActionError(expenseError instanceof Error ? expenseError.message : "Unable to save expense.");
       return undefined;
@@ -400,6 +398,11 @@ export function ExpenseDialog({
   const combinedCategories = Array.from(new Set([...expenseCategoryOptions, ...customCategories]));
   const { activeOrganization } = useAuth();
   const selectedShipment = shipments.find((shipment) => shipment.id === form.shipmentId);
+  const driverAssignments = (selectedShipment?.assignments ?? []).filter((assignment): assignment is typeof assignment & { id: string } => Boolean(assignment.id));
+  // A single-driver shipment needs no choice; the reimbursement goes to that driver.
+  const defaultAssignmentId = driverAssignments.length === 1 ? driverAssignments[0].id : null;
+  const { createAttachmentMetadata } = useShipmentAttachments(form.shipmentId);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -411,8 +414,9 @@ export function ExpenseDialog({
       setSaving(false);
       return;
     }
-    if (form.driverReimbursable && !form.shipmentAssignmentId) {
-      setSaveMessage("Select the driver assignment that should receive this reimbursement.");
+    const shipmentAssignmentId = form.driverReimbursable ? (form.shipmentAssignmentId ?? defaultAssignmentId) : null;
+    if (form.driverReimbursable && !shipmentAssignmentId) {
+      setSaveMessage(driverAssignments.length ? "Select which driver to add this to." : "This shipment has no driver to add the expense to.");
       setSaving(false);
       return;
     }
@@ -431,13 +435,48 @@ export function ExpenseDialog({
         actualCostAmount: actualCost,
         clientBillAmount: Number(form.clientBillAmount === "" ? (form.actualCostAmount === "" ? form.amount : form.actualCostAmount) : form.clientBillAmount),
         notes: form.notes?.trim() || null,
-        approved: canApprove ? Boolean(form.approved) : Boolean(expense?.approved),
-        paidBy: form.driverReimbursable ? "driver" : form.paidBy,
+        shipmentAssignmentId,
+        // The approval checkbox was removed: new expenses count straight away; edits keep their state unless an approver saves them.
+        approved: expense ? (canApprove || Boolean(expense.approved)) : true,
+        // A driver being repaid must be recorded as the payer; otherwise keep the existing payer (My business by default).
+        paidBy: form.driverReimbursable ? "driver" : (form.paidBy === "driver" ? "company" : form.paidBy),
         clientBillable: Boolean(form.clientBillable),
         includedInInvoice: Boolean(form.clientBillable && form.includedInInvoice),
         driverReimbursable: Boolean(form.driverReimbursable),
       });
-      if (saved) setSaveMessage("Expense saved.");
+      if (saved && selectedFile) {
+        try {
+          const category = getAttachmentCategoryForExpense(saved.category) || "other";
+          let storageKey = `demo/${saved.shipmentId}/${selectedFile.name}`;
+          if (!env.demoMode) {
+            const upload = await createShipmentAttachmentUploadUrl({
+              shipmentId: saved.shipmentId,
+              shipmentExpenseId: saved.id,
+              category,
+              fileName: selectedFile.name,
+              fileType: selectedFile.type,
+              fileSize: selectedFile.size,
+            });
+            await uploadFileToSignedUrl(selectedFile, upload.signedUploadUrl, { "Content-Type": selectedFile.type });
+            storageKey = upload.storageKey;
+          }
+          await createAttachmentMetadata({
+            shipmentId: saved.shipmentId,
+            shipmentExpenseId: saved.id,
+            category,
+            fileName: selectedFile.name,
+            fileType: selectedFile.type,
+            fileSize: selectedFile.size,
+            storageKey,
+            notes: null,
+          });
+        } catch {
+          setSaveMessage("Expense saved, but the receipt could not be uploaded. Add it from the shipment's Attachments.");
+          return;
+        }
+      }
+      // Close only after any receipt upload so it is linked before the dialog unmounts.
+      if (saved) onClose();
     } finally {
       setSaving(false);
     }
@@ -601,39 +640,9 @@ export function ExpenseDialog({
         </section>
         <section className="form-section">
           <div className="form-section-header">
-            <h3>Financial Treatment</h3>
-            <p>These rules determine company billing, driver reimbursement, cost, and approval.</p>
+            <h3>Billing</h3>
           </div>
-          <div className="form-grid">
-            <label className="field">
-              <span>Paid by</span>
-              <select
-                value={form.driverReimbursable ? "driver" : form.paidBy}
-                onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value as ShipmentExpenseInput["paidBy"] }))}
-                disabled={Boolean(form.driverReimbursable)}
-              >
-                <option value="company">My business</option>
-                <option value="driver">Driver</option>
-                <option value="client">Company</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Driver assignment</span>
-              <select
-                value={form.shipmentAssignmentId ?? ""}
-                onChange={(event) => setForm((current) => ({ ...current, shipmentAssignmentId: event.target.value || null }))}
-                disabled={!form.driverReimbursable}
-                required={Boolean(form.driverReimbursable)}
-              >
-                <option value="">{form.driverReimbursable ? "Select assignment" : "Not applicable"}</option>
-                {(selectedShipment?.assignments ?? []).map((assignment, index) => (
-                  <option key={assignment.id ?? `${assignment.driverId}-${index}`} value={assignment.id ?? ""} disabled={!assignment.id}>
-                    Leg {assignment.legOrder}: {assignment.driverName} ({assignment.fromLocation} to {assignment.toLocation})
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="expense-treatment-options">
             <label className="field checkbox-field">
               <input
                 type="checkbox"
@@ -641,10 +650,10 @@ export function ExpenseDialog({
                 onChange={(event) => setForm((current) => ({
                   ...current,
                   clientBillable: event.target.checked,
-                  includedInInvoice: event.target.checked ? current.includedInInvoice : false,
+                  includedInInvoice: event.target.checked,
                 }))}
               />
-              <span>Bill this expense to the company</span>
+              <span>Bill the company</span>
             </label>
             <label className="field checkbox-field">
               <input
@@ -653,7 +662,7 @@ export function ExpenseDialog({
                 disabled={!form.clientBillable}
                 onChange={(event) => setForm((current) => ({ ...current, includedInInvoice: event.target.checked }))}
               />
-              <span>Include in the next draft invoice</span>
+              <span>Include in invoice</span>
             </label>
             <label className="field checkbox-field">
               <input
@@ -662,32 +671,64 @@ export function ExpenseDialog({
                 onChange={(event) => setForm((current) => ({
                   ...current,
                   driverReimbursable: event.target.checked,
-                  paidBy: event.target.checked ? "driver" : current.paidBy,
-                  shipmentAssignmentId: event.target.checked ? current.shipmentAssignmentId : null,
+                  shipmentAssignmentId: event.target.checked ? (current.shipmentAssignmentId ?? defaultAssignmentId) : null,
                 }))}
               />
-              <span>Reimburse an assigned driver</span>
-            </label>
-            <label className="field checkbox-field">
-              <input
-                type="checkbox"
-                checked={Boolean(form.approved)}
-                disabled={!canApprove}
-                onChange={(event) => setForm((current) => ({ ...current, approved: event.target.checked }))}
-              />
-              <span>{canApprove ? "Approved for financial calculations" : "Approval requires an authorized finance role"}</span>
+              <span>Add to driver's payment</span>
             </label>
           </div>
+          {form.driverReimbursable && driverAssignments.length > 1 && (
+            <label className="field expense-driver-pick">
+              <span>Which driver?</span>
+              <select
+                value={form.shipmentAssignmentId ?? ""}
+                onChange={(event) => setForm((current) => ({ ...current, shipmentAssignmentId: event.target.value || null }))}
+                required
+              >
+                <option value="">Select driver</option>
+                {driverAssignments.map((assignment) => (
+                  <option key={assignment.id} value={assignment.id}>
+                    {assignment.driverName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </section>
         <section className="form-section">
-          <div className="form-section-header">
-            <h3>Notes</h3>
-            <p>Add optional context to this expense.</p>
+          <div className="expense-notes-receipt-row">
+            <label className="field">
+              <span>Notes</span>
+              <textarea value={form.notes ?? ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Optional" />
+            </label>
+            <div className="field">
+              <span>Receipt / document</span>
+              <div className="expense-receipt-box">
+                {selectedFile ? (
+                  <div className="expense-receipt-file">
+                    <Paperclip size={14} />
+                    <span title={selectedFile.name}>{selectedFile.name}</span>
+                    <button type="button" onClick={() => setSelectedFile(null)} aria-label="Remove file"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <label className="table-action">
+                    <UploadCloud size={14} /> Choose file
+                    <input
+                      className="hidden"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      disabled={!canManageAttachments}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) setSelectedFile(file);
+                      }}
+                    />
+                  </label>
+                )}
+                <small>Uploaded when you save</small>
+              </div>
+            </div>
           </div>
-          <label className="field">
-          <span>Notes</span>
-          <textarea value={form.notes ?? ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
-        </label>
         {error && <p className="form-error">{error}</p>}
         {saveMessage && <p className="inline-alert">{saveMessage}</p>}
         </section>
