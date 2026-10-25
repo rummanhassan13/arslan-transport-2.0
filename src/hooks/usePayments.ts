@@ -214,9 +214,10 @@ export function usePayments(invoices: Invoice[] = [], shipments: Shipment[] = []
   }, [organizationId]);
 
   const createDriverPayment = useCallback(
-    async (input: DriverPaymentInput) => {
+    async (input: DriverPaymentInput, knownShipment?: Shipment) => {
       if (env.demoMode) {
-        const shipment = shipments.find((item) => item.id === input.shipmentId);
+        // A shipment created in this same save is not in `shipments` yet, so callers can pass it in.
+        const shipment = knownShipment?.id === input.shipmentId ? knownShipment : shipments.find((item) => item.id === input.shipmentId);
         if (!shipment) throw new Error("Select a shipment before recording a driver payment.");
         if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error("Payment amount must be greater than zero.");
         const duplicate = input.idempotencyKey

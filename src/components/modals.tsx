@@ -212,6 +212,7 @@ export function AddShipmentModal({
   };
 
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [driverVehicleMode, setDriverVehicleMode] = useState(false);
   const [driverVehicleMessage, setDriverVehicleMessage] = useState("");
   const [driverVehicleSaving, setDriverVehicleSaving] = useState(false);
@@ -383,6 +384,23 @@ export function AddShipmentModal({
     }
   };
   const save = async () => {
+    // Mirror the database rules for initial advances so the whole save isn't rejected.
+    if (!editShipment) {
+      for (const assignment of form.assignments ?? []) {
+        const advance = Number(assignment.advancePaid) || 0;
+        if (advance <= 0) continue;
+        const label = hasMultipleLegs ? `Driver ${assignment.legOrder}` : "the driver";
+        if (!assignment.driverName.trim()) {
+          setSaveError(`Select a driver for ${label} before adding an advance.`);
+          return;
+        }
+        if (advance > (Number(assignment.driverRate) || 0)) {
+          setSaveError(`Advance for ${label} cannot be more than the driver rate.`);
+          return;
+        }
+      }
+    }
+    setSaveError("");
     setSaving(true);
     try {
       const sanitizedForm: ShipmentInput = {
@@ -813,6 +831,7 @@ export function AddShipmentModal({
           >
             + Add another driver
           </button>
+          {saveError && <small className="inline-alert">{saveError}</small>}
         </section>
         <section className="form-section">
           <h3>Remarks</h3>
