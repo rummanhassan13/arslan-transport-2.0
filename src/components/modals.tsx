@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { emptyShipment } from "../data/mockData";
 import type { Client, ClientInput, ClientPaymentInput, Driver, DriverPaymentInput, Invoice, InvoiceItem, Shipment, ShipmentInput, TruckType, Vehicle } from "../types/domain";
 import type { RouteLocationType } from "../services/routeLocationService";
@@ -213,6 +213,10 @@ export function AddShipmentModal({
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const saveErrorRef = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    if (saveError) saveErrorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [saveError]);
   const [driverVehicleMode, setDriverVehicleMode] = useState(false);
   const [driverVehicleMessage, setDriverVehicleMessage] = useState("");
   const [driverVehicleSaving, setDriverVehicleSaving] = useState(false);
@@ -226,10 +230,6 @@ export function AddShipmentModal({
   });
   const computedDriverRate = useMemo(() => {
     return form.assignments?.reduce((sum, a) => sum + (Number(a.driverRate) || 0), 0) || 0;
-  }, [form.assignments]);
-
-  const computedAdvance = useMemo(() => {
-    return form.assignments?.reduce((sum, a) => sum + (Number(a.advancePaid) || 0), 0) || 0;
   }, [form.assignments]);
 
   const hasMultipleLegs = (form.assignments?.length ?? 0) > 1;
@@ -384,12 +384,31 @@ export function AddShipmentModal({
     }
   };
   const save = async () => {
+    const missing = [
+      !form.customer.trim() && "Company",
+      !form.loadingPoint.trim() && "Loading Point",
+      !form.destination.trim() && "Destination",
+    ].filter(Boolean);
+    if (missing.length) {
+      setSaveError(`Please fill in ${missing.join(", ")} before saving.`);
+      return;
+    }
+    // Drop extra driver rows left empty, renumber legs, and default each leg's
+    // From/To to the trip's Loading Point/Destination.
+    const assignments = (form.assignments ?? [])
+      .filter((assignment, index) => index === 0 || assignment.driverName.trim())
+      .map((assignment, index) => ({
+        ...assignment,
+        legOrder: index + 1,
+        fromLocation: assignment.fromLocation?.trim() || form.loadingPoint,
+        toLocation: assignment.toLocation?.trim() || form.destination,
+      }));
     // Mirror the database rules for initial advances so the whole save isn't rejected.
     if (!editShipment) {
-      for (const assignment of form.assignments ?? []) {
+      for (const assignment of assignments) {
         const advance = Number(assignment.advancePaid) || 0;
         if (advance <= 0) continue;
-        const label = hasMultipleLegs ? `Driver ${assignment.legOrder}` : "the driver";
+        const label = assignments.length > 1 ? `Driver ${assignment.legOrder}` : "the driver";
         if (!assignment.driverName.trim()) {
           setSaveError(`Select a driver for ${label} before adding an advance.`);
           return;
@@ -403,11 +422,13 @@ export function AddShipmentModal({
     setSaveError("");
     setSaving(true);
     try {
+      const sumOf = (key: "driverRate" | "advancePaid") => assignments.reduce((total, a) => total + (Number(a[key]) || 0), 0);
       const sanitizedForm: ShipmentInput = {
         ...form,
+        assignments,
         companyRate: form.companyRate === "" ? 0 : Number(form.companyRate),
-        driverRate: form.assignments?.length ? computedDriverRate : (form.driverRate === "" ? 0 : Number(form.driverRate)),
-        advance: form.assignments?.length ? computedAdvance : (form.advance === "" ? 0 : Number(form.advance)),
+        driverRate: assignments.length ? sumOf("driverRate") : (form.driverRate === "" ? 0 : Number(form.driverRate)),
+        advance: assignments.length ? sumOf("advancePaid") : (form.advance === "" ? 0 : Number(form.advance)),
         gatePass: form.gatePass === "" ? 0 : Number(form.gatePass),
         fashah: form.fashah === "" ? 0 : Number(form.fashah),
         naql: form.naql === "" ? 0 : Number(form.naql),
@@ -831,7 +852,6 @@ export function AddShipmentModal({
           >
             + Add another driver
           </button>
-          {saveError && <small className="inline-alert">{saveError}</small>}
         </section>
         <section className="form-section">
           <h3>Remarks</h3>
@@ -842,6 +862,7 @@ export function AddShipmentModal({
             </label>
           </div>
         </section>
+        {saveError && <p className="inline-alert" role="alert" ref={saveErrorRef}>{saveError}</p>}
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         <SummaryCard title="Company Total" value={money(totals.companyTotal)} note="Auto calculated" />

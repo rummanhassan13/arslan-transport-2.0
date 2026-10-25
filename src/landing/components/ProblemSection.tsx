@@ -12,7 +12,7 @@ const problems = [
     icon: Coins,
   },
   {
-    title: "Client invoices are delayed",
+    title: "Company invoices are delayed",
     description: "Waiting to collect proof of delivery slows down your cash flow.",
     icon: Receipt,
   },

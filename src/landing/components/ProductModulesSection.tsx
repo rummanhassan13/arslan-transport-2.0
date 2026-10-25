@@ -19,23 +19,23 @@ const modules = [
   {
     id: "directory",
     title: "Directory",
-    description: "Manage clients, drivers, and fleet.",
+    description: "Manage companies, drivers, and fleet.",
     icon: Users,
-    content: "Your central database for transport assets. Keep track of client billing details, driver contact information, vehicle assignments, and truck types."
+    content: "Your central database for transport assets. Keep track of company billing details, driver contact information, vehicle assignments, and truck types."
   },
   {
     id: "finance",
     title: "Finance",
     description: "Track invoices and all payments.",
     icon: Wallet,
-    content: "Full visibility into your cash flow. Generate client invoices, record received payments, manage driver advances, and track settlements."
+    content: "Full visibility into your cash flow. Generate company invoices, record received payments, manage driver advances, and track settlements."
   },
   {
     id: "reports",
     title: "Reports",
     description: "Review comprehensive profit data.",
     icon: BarChart3,
-    content: "Automated reporting that replaces manual Excel consolidation. Export detailed breakdowns of shipment margins, client statements, and driver ledgers."
+    content: "Automated reporting that replaces manual Excel consolidation. Export detailed breakdowns of shipment margins, company statements, and driver ledgers."
   }
 ];
 

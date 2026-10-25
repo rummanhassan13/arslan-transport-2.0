@@ -29,7 +29,7 @@ import { canApproveExpenses, canManageAttachments, canManageExpenses } from "../
 
 const paidByOptions: ExpensePaidBy[] = ["company", "driver", "client", "other"];
 // "company" is our own business; "client" is shown to users as "Company".
-const paidByLabels: Record<ExpensePaidBy, string> = { company: "Business", driver: "Driver", client: "Company", other: "Other" };
+const paidByLabels: Record<ExpensePaidBy, string> = { company: "My business", driver: "Driver", client: "Company", other: "Other" };
 const expenseCategoryOptions = Array.from(EXPENSE_CATEGORIES);
 
 export function ExpensesPage({
@@ -654,7 +654,7 @@ export function ExpenseDialog({
                 onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value as ShipmentExpenseInput["paidBy"] }))}
                 disabled={Boolean(form.driverReimbursable)}
               >
-                <option value="company">Business</option>
+                <option value="company">My business</option>
                 <option value="driver">Driver</option>
                 <option value="client">Company</option>
                 <option value="other">Other</option>
