@@ -26,7 +26,7 @@ export const defaultShipments: Shipment[] = [
     driverPaymentStatus: "Advance Paid",
     invoiceStatus: "Sent",
     clientPaymentStatus: "Pending",
-    remarks: "Gate pass attached. Awaiting client release.",
+    remarks: "Gate pass attached. Awaiting company release.",
     billImages: [
       { id: "b1", name: "gate-pass-at-1001.jpg", type: "Gate Pass" },
       { id: "b2", name: "naql-slip-at-1001.jpg", type: "NAQL" },
@@ -57,7 +57,7 @@ export const defaultShipments: Shipment[] = [
     driverPaymentStatus: "Partially Paid",
     invoiceStatus: "Draft",
     clientPaymentStatus: "Partially Paid",
-    remarks: "Client requested invoice preview before dispatch.",
+    remarks: "Company requested invoice preview before dispatch.",
     billImages: [{ id: "b3", name: "advance-voucher-at-1002.jpg", type: "Advance" }],
   },
   {

@@ -94,7 +94,7 @@ export function InvoicesPage({
         <div className="table-title table-title-filters">
           <div>
             <h3>Invoices</h3>
-            <p>Invoice status, client payment state, and preview actions.</p>
+            <p>Invoice status, company payment state, and preview actions.</p>
           </div>
           
           <div className="table-filters">
@@ -124,7 +124,7 @@ export function InvoicesPage({
             <thead>
               <tr>
                 <th>Invoice</th>
-                <th>Customer</th>
+                <th>Company</th>
                 <th>Date</th>
                 <th>Destination</th>
                 <th className="num text-right">Company Total</th>
@@ -144,7 +144,7 @@ export function InvoicesPage({
                       <td className="num">
                         <span className="invoice-cell">{row.invoiceNumber}</span>
                       </td>
-                      <td className="customer-cell">{row.clientName || (row.clientSnapshot.name as string) || "Client"}</td>
+                      <td className="customer-cell">{row.clientName || (row.clientSnapshot.name as string) || "Company"}</td>
                       <td className="num">{formatDate(row.issueDate)}</td>
                       <td>{row.destination || (row.shipmentSnapshot.destination as string) || "Destination"}</td>
                       <td className="num">{money(row.totalAmount)}</td>
@@ -242,7 +242,7 @@ function shipmentFromInvoice(invoice: Invoice): Shipment {
     invoice: invoice.invoiceNumber,
     loadingPoint: (snapshot.loadingPoint as string) || "",
     destination: (snapshot.destination as string) || invoice.destination || "",
-    customer: (clientSnapshot.name as string) || invoice.clientName || "Client",
+    customer: (clientSnapshot.name as string) || invoice.clientName || "Company",
     driverName: (snapshot.driverName as string) || "",
     vehicleNo: (snapshot.vehicleNo as string) || "",
     truckType: (snapshot.truckType as string) || "",

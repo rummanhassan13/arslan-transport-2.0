@@ -54,9 +54,9 @@ function MonthlySummaryReportCard({ shipments }: { shipments: Shipment[] }) {
       <div className="report-card-body">
         <div className="report-filter-grid">
           <label className="field">
-            <span>Customer</span>
+            <span>Company</span>
             <select value={customer} onChange={(e) => setCustomer(e.target.value)}>
-              <option value="">All customers</option>
+              <option value="">All companies</option>
               {uniqueCustomers.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </label>
@@ -90,7 +90,7 @@ function MonthlySummaryReportCard({ shipments }: { shipments: Shipment[] }) {
                 <tr>
                   <th>Date</th>
                   <th>Reference</th>
-                  <th>Customer</th>
+                  <th>Company</th>
                   <th>Route</th>
                   <th className="num">Company Total</th>
                   <th>Status</th>

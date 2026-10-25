@@ -3,7 +3,7 @@ import { emptyShipment } from "../data/mockData";
 import type { Client, ClientInput, ClientPaymentInput, Driver, DriverPaymentInput, Invoice, InvoiceItem, Shipment, ShipmentInput, TruckType, Vehicle } from "../types/domain";
 import type { RouteLocationType } from "../services/routeLocationService";
 import { calculate } from "../utils/calculations";
-import { labelize, money, unique, uniqueByValues } from "../utils/formatters";
+import { money, unique, uniqueByValues } from "../utils/formatters";
 import { Modal, SelectField, SelectOrNewField, SummaryCard } from "./ui";
 import { InvoicePrintTemplate } from "./InvoicePrintTemplate";
 import { useBusinessSettings } from "../hooks/useBusinessSettings";
@@ -107,7 +107,6 @@ export function AddShipmentModal({
       ],
     };
   });
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
   // Lifted inline-create states
   const [inlineCustomerMode, setInlineCustomerMode] = useState(false);
@@ -168,7 +167,7 @@ export function AddShipmentModal({
     const cleanedName = customerDraft.trim().replace(/\s+/g, " ");
     setCustomerInlineError("");
     if (!cleanedName) {
-      setCustomerInlineError("Customer name is required.");
+      setCustomerInlineError("Company name is required.");
       return;
     }
 
@@ -206,7 +205,7 @@ export function AddShipmentModal({
       }
       resetCustomerInline();
     } catch (error) {
-      setCustomerInlineError(error instanceof Error ? error.message : "Unable to save customer.");
+      setCustomerInlineError(error instanceof Error ? error.message : "Unable to save company.");
     } finally {
       setInlineSaving(false);
     }
@@ -232,6 +231,7 @@ export function AddShipmentModal({
     return form.assignments?.reduce((sum, a) => sum + (Number(a.advancePaid) || 0), 0) || 0;
   }, [form.assignments]);
 
+  const hasMultipleLegs = (form.assignments?.length ?? 0) > 1;
   const totals = calculate({ ...form, driverRate: computedDriverRate });
   const historicalLocations = uniqueByValues([
     ...shipments.map((shipment) => shipment.loadingPoint),
@@ -408,39 +408,14 @@ export function AddShipmentModal({
       size="wide"
       footer={
         <>
-          {activeStep === 1 ? (
-            <button className="btn-ghost" onClick={onClose} type="button">Cancel</button>
-          ) : (
-            <button className="btn-ghost" onClick={() => setActiveStep((activeStep - 1) as 1 | 2)} type="button">Back</button>
-          )}
-          {activeStep < 3 ? (
-            <button className="btn-primary" onClick={() => setActiveStep((activeStep + 1) as 2 | 3)} type="button">Continue</button>
-          ) : (
-            <button className="btn-primary" onClick={save} disabled={saving} type="button">{saving ? "Saving..." : editShipment ? "Save Changes" : "Save Shipment"}</button>
-          )}
+          <button className="btn-ghost" onClick={onClose} type="button">Cancel</button>
+          <button className="btn-primary" onClick={save} disabled={saving} type="button">{saving ? "Saving..." : editShipment ? "Save Changes" : "Save Shipment"}</button>
         </>
       }
     >
-      <div className="shipment-form-steps" aria-label="Shipment form progress">
-        {(["Shipment", "Assignment", "Review"] as const).map((label, index) => {
-          const step = (index + 1) as 1 | 2 | 3;
-          return (
-            <button
-              key={label}
-              className={`shipment-form-step${activeStep === step ? " active" : ""}${activeStep > step ? " complete" : ""}`}
-              onClick={() => setActiveStep(step)}
-              aria-current={activeStep === step ? "step" : undefined}
-              type="button"
-            >
-              <span>{step}</span>
-              {label}
-            </button>
-          );
-        })}
-      </div>
       <div className="form-layout">
-        {activeStep === 1 && <section className="form-section">
-          <h3>Shipment</h3>
+        <section className="form-section">
+          <h3>Shipment Details</h3>
           <div className="form-grid">
             <label className="field">
               <span>Date</span>
@@ -452,11 +427,11 @@ export function AddShipmentModal({
             </label>
             {inlineCustomerMode ? (
               <label className="field">
-                <span>Customer</span>
+                <span>Company</span>
                 <div className="select-new-row">
                   <input
                     value={customerDraft}
-                    placeholder="Enter new customer"
+                    placeholder="Enter new company"
                     onChange={(event) => setCustomerDraft(event.target.value)}
                     autoFocus
                   />
@@ -480,7 +455,7 @@ export function AddShipmentModal({
               </label>
             ) : (
               <label className="field">
-                <span>Customer</span>
+                <span>Company</span>
                 <select
                   value={form.customer}
                   onChange={(event) => {
@@ -497,7 +472,7 @@ export function AddShipmentModal({
                     }));
                   }}
                 >
-                  <option value="">Select customer</option>
+                  <option value="">Select company</option>
                   <option value="__add_new__">Add new...</option>
                   {customerOptions.map((option) => (
                     <option key={option} value={option}>
@@ -537,34 +512,19 @@ export function AddShipmentModal({
               setMessage={setDestinationInlineError}
               onCancel={resetDestinationInline}
             />
+            <label className="field">
+              <span>Company Rate</span>
+              <input type="number" value={form.companyRate} onChange={(event) => setField("companyRate", event.target.value)} />
+            </label>
           </div>
-        </section>}
-        {activeStep === 2 && <section className="form-section">
-          <div className="form-section-header">
-            <h3>Driver & Vehicle Assignment</h3>
-            <button
-              className="table-action"
-              type="button"
-              onClick={() => {
-                const newLegOrder = (form.assignments?.length || 0) + 1;
-                setForm((current) => ({
-                  ...current,
-                  assignments: [
-                    ...(current.assignments || []),
-                    { driverId: null, driverName: "", legOrder: newLegOrder, fromLocation: "", toLocation: "", driverRate: 0, notes: "", vehicleId: null, vehicleNo: "", truckTypeId: null, truckType: "", advancePaid: 0 }
-                  ],
-                }));
-              }}
-            >
-              + Add Driver Leg
-            </button>
-          </div>
-          
+        </section>
+        <section className="form-section">
+          <h3>Driver Details</h3>
           <div className="flex flex-col gap-4">
             {form.assignments?.map((assignment, index) => (
-              <div key={index} className="border border-[var(--border-color)] rounded-[var(--radius)] p-4 relative">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-medium">Leg {assignment.legOrder}</h4>
+              <div key={index} className={hasMultipleLegs ? "border border-[var(--border-color)] rounded-[var(--radius)] p-4 relative" : undefined}>
+                {hasMultipleLegs && <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-medium">Driver {assignment.legOrder}</h4>
                   {index > 0 && (
                     <button
                       type="button"
@@ -595,7 +555,7 @@ export function AddShipmentModal({
                       Remove
                     </button>
                   )}
-                </div>
+                </div>}
                 <div className="form-grid">
                   <label className="field">
                     <span>Driver Name</span>
@@ -757,6 +717,7 @@ export function AddShipmentModal({
                       ))}
                     </select>
                   </label>
+                  {hasMultipleLegs && <>
                   <label className="field">
                     <span>From Location</span>
                     <input
@@ -785,6 +746,7 @@ export function AddShipmentModal({
                       }}
                     />
                   </label>
+                  </>}
                   <label className="field">
                     <span>Driver Rate</span>
                     <input
@@ -800,12 +762,12 @@ export function AddShipmentModal({
                     />
                   </label>
                   <label className="field">
-                    <span>{editShipment ? "Advance Paid (ledger)" : "Initial Driver Advance"}</span>
+                    <span>{editShipment ? "Advance Paid (ledger)" : "Driver Advance"}</span>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
-                      value={assignment.advancePaid ?? ""}
+                      value={assignment.advancePaid || ""}
                       disabled={Boolean(editShipment)}
                       title={editShipment ? "Use Add Payment to record or reverse posted advances." : "Recorded as an assignment-aware advance ledger entry when the shipment is saved."}
                       onChange={(e) => {
@@ -817,7 +779,7 @@ export function AddShipmentModal({
                       }}
                     />
                   </label>
-                  <label className="field form-wide">
+                  {hasMultipleLegs && <label className="field form-wide">
                     <span>Notes</span>
                     <input
                       type="text"
@@ -830,45 +792,44 @@ export function AddShipmentModal({
                         });
                       }}
                     />
-                  </label>
+                  </label>}
                 </div>
               </div>
             ))}
           </div>
-        </section>}
-        {activeStep === 3 && (
-          <>
-            <section className="form-section">
-              <h3>Billing</h3>
-              <div className="form-grid">
-                {(["companyRate"] as const).map((key) => (
-                  <label key={key} className="field">
-                    <span>{labelize(key)}</span>
-                    <input type="number" value={form[key]} onChange={(event) => setField(key, event.target.value)} />
-                  </label>
-                ))}
-              </div>
-            </section>
-            <section className="form-section">
-              <h3>Remarks</h3>
-              <div className="form-grid">
-                <label className="field form-wide">
-                  <span>Remark</span>
-                  <textarea value={form.remarks} onChange={(event) => setField("remarks", event.target.value)} />
-                </label>
-              </div>
-            </section>
-          </>
-        )}
+          <button
+            className="shipment-add-driver-link"
+            type="button"
+            onClick={() => {
+              const newLegOrder = (form.assignments?.length || 0) + 1;
+              setForm((current) => ({
+                ...current,
+                assignments: [
+                  ...(current.assignments || []),
+                  { driverId: null, driverName: "", legOrder: newLegOrder, fromLocation: "", toLocation: "", driverRate: 0, notes: "", vehicleId: null, vehicleNo: "", truckTypeId: null, truckType: "", advancePaid: 0 }
+                ],
+              }));
+            }}
+          >
+            + Add another driver
+          </button>
+        </section>
+        <section className="form-section">
+          <h3>Remarks</h3>
+          <div className="form-grid">
+            <label className="field form-wide">
+              <span>Remarks</span>
+              <textarea value={form.remarks} onChange={(event) => setField("remarks", event.target.value)} />
+            </label>
+          </div>
+        </section>
       </div>
-      {activeStep === 3 && (
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <SummaryCard title="Company Total" value={money(totals.companyTotal)} note="Auto calculated" />
-          <SummaryCard title="Driver Total" value={money(totals.driverTotal)} note="Auto calculated" />
-          <SummaryCard title="Pending" value={money(totals.pending)} note="Driver balance" />
-          <SummaryCard title="Net Profit" value={money(totals.netProfit)} note="Revenue minus cost" />
-        </div>
-      )}
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <SummaryCard title="Company Total" value={money(totals.companyTotal)} note="Auto calculated" />
+        <SummaryCard title="Driver Total" value={money(totals.driverTotal)} note="Auto calculated" />
+        <SummaryCard title="Pending" value={money(totals.pending)} note="Driver balance" />
+        <SummaryCard title="Net Profit" value={money(totals.netProfit)} note="Revenue minus cost" />
+      </div>
     </Modal>
     {driverVehicleMode && (
       <Modal
@@ -1141,7 +1102,7 @@ export function PaymentModal({
       return;
     }
     if (type === "Client" && !invoice) {
-      setError("Select a generated invoice before recording a client payment.");
+      setError("Select a generated invoice before recording a company payment.");
       return;
     }
     if (type === "Driver" && (!shipment || !driverId)) {
@@ -1208,11 +1169,11 @@ export function PaymentModal({
         <section className="form-section">
           <div className="form-section-header">
             <h3>Payment Details</h3>
-            <p>Record a client receipt or driver payout in the finance ledger.</p>
+            <p>Record a company receipt or driver payout in the finance ledger.</p>
           </div>
           {error && <div className="alert-danger mb-4 p-3 rounded">{error}</div>}
           <div className="form-grid">
-            <SelectField label="Payment Type" value={type} onChange={(value) => setType(value as "Client" | "Driver")} options={["Client", "Driver"]} disabled={!!initialType} />
+            <SelectField label="Payment Type" value={type} onChange={(value) => setType(value as "Client" | "Driver")} options={["Client", "Driver"]} optionLabels={{ Client: "Company" }} disabled={!!initialType} />
             {type === "Client" ? (
               <>
                 <label className="field">
@@ -1221,15 +1182,15 @@ export function PaymentModal({
                     {!availableInvoices.length && <option value="">No invoice generated for this shipment</option>}
                     {availableInvoices.map((invoice) => (
                       <option key={invoice.id} value={invoice.id}>
-                        {invoice.invoiceNumber} - {invoice.clientName || "Client"}
+                        {invoice.invoiceNumber} - {invoice.clientName || "Company"}
                       </option>
                     ))}
                   </select>
                 </label>
                 {initialShipmentId && !initialShipmentInvoice && (
                   <div className="field flex flex-col justify-center bg-[var(--bg-hover)] p-2 rounded border border-[var(--line-soft)]">
-                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold mb-1">Client payment unavailable</span>
-                    <span className="text-sm text-[var(--ink-2)]">Generate this shipment's invoice before recording a client payment.</span>
+                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold mb-1">Company payment unavailable</span>
+                    <span className="text-sm text-[var(--ink-2)]">Generate this shipment's invoice before recording a company payment.</span>
                   </div>
                 )}
               </>

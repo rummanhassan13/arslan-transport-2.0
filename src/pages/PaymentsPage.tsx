@@ -33,7 +33,7 @@ export function PaymentsPage({
   deleteDriverPayment?: (paymentId: string) => Promise<void> | void;
   embedded?: boolean;
 }) {
-  const [tab, setTab] = useState<"Client Receivables" | "Driver Payouts">("Client Receivables");
+  const [tab, setTab] = useState<"Company Receivables" | "Driver Payouts">("Company Receivables");
   const invoiceRows = invoices.length ? invoices : [];
   const paidByInvoice = new Map<string, number>();
   clientPayments.forEach((payment) => {
@@ -53,7 +53,7 @@ export function PaymentsPage({
           <div className="filter-toolbar">
             <div>
               <h3>Payments</h3>
-              <p>Client receivables and driver settlement tracking.</p>
+              <p>Company receivables and driver settlement tracking.</p>
             </div>
             <button className="btn-primary" onClick={openPayment}>
               Add Payment
@@ -61,31 +61,31 @@ export function PaymentsPage({
           </div>
         </section>
       ) : (
-        <PageTitle title="Payments" subtitle="Client receivables and driver settlement tracking." action="Add Payment" onAction={openPayment} />
+        <PageTitle title="Payments" subtitle="Company receivables and driver settlement tracking." action="Add Payment" onAction={openPayment} />
       )}
       <KpiGrid
         items={[
-          ["Outstanding", money(outstanding), "Client amounts not fully paid"],
+          ["Outstanding", money(outstanding), "Company amounts not fully paid"],
           ["Paid this period", money(paidThisPeriod), "Based on current shipment statuses"],
           ["Overdue", money(overdue), "Needs payment follow-up"],
           ["Driver Payables", money(driverPayables), "Open driver settlement balance"],
         ]}
       />
       <div className="period">
-        {["Client Receivables", "Driver Payouts"].map((item) => (
+        {["Company Receivables", "Driver Payouts"].map((item) => (
           <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item as typeof tab)}>
             {item}
           </button>
         ))}
       </div>
       {error && <div className="form-error">{error}</div>}
-      {tab === "Client Receivables" ? (
+      {tab === "Company Receivables" ? (
         <>
         <div className="table-card">
           <div className="table-title">
             <div>
-              <h3>Client receivables ledger</h3>
-              <p>Invoice-level receivables grouped by customer context.</p>
+              <h3>Company receivables ledger</h3>
+              <p>Invoice-level receivables grouped by company context.</p>
             </div>
             <span className="status num">{invoiceRows.length || shipments.length} rows</span>
           </div>
@@ -94,7 +94,7 @@ export function PaymentsPage({
               <thead>
                 <tr>
                   <th>Invoice</th>
-                  <th>Customer</th>
+                  <th>Company</th>
                   <th>Date</th>
                   <th className="num text-right">Company Total</th>
                   <th className="num text-right">Paid</th>
@@ -114,7 +114,7 @@ export function PaymentsPage({
                       <td className="num">
                         <span className="invoice-cell">{row.invoiceNumber}</span>
                       </td>
-                      <td className="customer-cell">{row.clientName || (row.clientSnapshot.name as string) || "Client"}</td>
+                      <td className="customer-cell">{row.clientName || (row.clientSnapshot.name as string) || "Company"}</td>
                       <td className="num">{formatDate(row.issueDate)}</td>
                       <td className="num">{money(row.totalAmount)}</td>
                       <td className="num">{money(paid)}</td>
@@ -148,15 +148,15 @@ export function PaymentsPage({
               </tbody>
             </table>
             {loading && <EmptyState text="Loading payments..." />}
-            {!loading && !invoiceRows.length && !shipments.length && <EmptyState text="No client receivables yet." />}
+            {!loading && !invoiceRows.length && !shipments.length && <EmptyState text="No company receivables yet." />}
           </div>
         </div>
         <div className="mt-6">
           <DataTable
-            title="Client Payments History"
-            columns={["Date", "Customer", "Amount", "Method", "Reference", "Action"]}
+            title="Company Payments History"
+            columns={["Date", "Company", "Amount", "Method", "Reference", "Action"]}
             rows={clientPayments.map((payment) => {
-              const customerName = payment.clientName || invoices.find((inv) => inv.id === payment.invoiceId)?.clientName || "Client";
+              const customerName = payment.clientName || invoices.find((inv) => inv.id === payment.invoiceId)?.clientName || "Company";
               return [
                 formatDate(payment.paymentDate),
                 customerName,
@@ -172,7 +172,7 @@ export function PaymentsPage({
                       }
                     }}
                     title="Delete Payment"
-                    aria-label={`Delete client payment ${payment.id}`}
+                    aria-label={`Delete company payment ${payment.id}`}
                   >
                     <Trash2 size={15} />
                   </button>
@@ -182,7 +182,7 @@ export function PaymentsPage({
               ];
             })}
           />
-          {clientPayments.length === 0 && <EmptyState text="No client payment transactions recorded yet." />}
+          {clientPayments.length === 0 && <EmptyState text="No company payment transactions recorded yet." />}
         </div>
         </>
       ) : (

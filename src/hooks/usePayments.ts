@@ -157,7 +157,7 @@ export function usePayments(invoices: Invoice[] = [], shipments: Shipment[] = []
     async (input: ClientPaymentInput) => {
       if (env.demoMode) {
         const invoice = invoices.find((item) => item.id === input.invoiceId);
-        if (!invoice) throw new Error("Select an invoice before recording a client payment.");
+        if (!invoice) throw new Error("Select an invoice before recording a company payment.");
         if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error("Payment amount must be greater than zero.");
         const duplicate = input.idempotencyKey
           ? clientPayments.find((payment) => payment.idempotencyKey === input.idempotencyKey)
@@ -170,7 +170,7 @@ export function usePayments(invoices: Invoice[] = [], shipments: Shipment[] = []
         return created;
       }
 
-      if (!organizationId) throw new Error("No active organization is available for creating client payments.");
+      if (!organizationId) throw new Error("No active organization is available for creating company payments.");
       const created = await createSupabaseClientPayment(organizationId, input);
       setClientPayments((current) => [created, ...current]);
       notifyGlobalRefresh("payments");
@@ -192,7 +192,7 @@ export function usePayments(invoices: Invoice[] = [], shipments: Shipment[] = []
       return updated;
     }
 
-    if (!organizationId) throw new Error("No active organization is available for updating client payments.");
+    if (!organizationId) throw new Error("No active organization is available for updating company payments.");
 
     const updated = await updateSupabaseClientPayment(organizationId, paymentId, input);
     setClientPayments((current) => current.map((payment) => (payment.id === paymentId ? updated : payment)));
@@ -206,7 +206,7 @@ export function usePayments(invoices: Invoice[] = [], shipments: Shipment[] = []
       return;
     }
 
-    if (!organizationId) throw new Error("No active organization is available for deleting client payments.");
+    if (!organizationId) throw new Error("No active organization is available for deleting company payments.");
 
     await softDeleteClientPayment(organizationId, paymentId);
     setClientPayments((current) => current.filter((payment) => payment.id !== paymentId && payment.reversalOfId !== paymentId));

@@ -64,7 +64,7 @@ export async function listClients(organizationId: string): Promise<Client[]> {
     .is("deleted_at", null)
     .order("name", { ascending: true });
 
-  if (error) throw new Error(`Unable to load clients: ${error.message}`);
+  if (error) throw new Error(`Unable to load companies: ${error.message}`);
   return ((data ?? []) as ClientRow[]).map(toClient);
 }
 
@@ -83,7 +83,7 @@ export async function createClient(organizationId: string, input: ClientInput): 
     .select(clientSelect)
     .single();
 
-  if (error) throw new Error(`Unable to create client: ${error.message}`);
+  if (error) throw new Error(`Unable to create company: ${error.message}`);
   return toClient(data as ClientRow);
 }
 
@@ -103,7 +103,7 @@ export async function updateClient(organizationId: string, clientId: string, inp
     .select(clientSelect)
     .single();
 
-  if (error) throw new Error(`Unable to update client: ${error.message}`);
+  if (error) throw new Error(`Unable to update company: ${error.message}`);
   return toClient(data as ClientRow);
 }
 
@@ -121,5 +121,5 @@ export async function softDeleteClient(organizationId: string, clientId: string)
     .eq("organization_id", organizationId)
     .is("deleted_at", null);
 
-  if (error) throw new Error(`Unable to delete client: ${error.message}`);
+  if (error) throw new Error(`Unable to delete company: ${error.message}`);
 }

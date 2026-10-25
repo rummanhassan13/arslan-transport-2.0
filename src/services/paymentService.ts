@@ -169,7 +169,7 @@ export async function listClientPayments(organizationId: string): Promise<Client
     .is("deleted_at", null)
     .order("payment_date", { ascending: false });
 
-  if (error) throw new Error(`Unable to load client payments: ${error.message}`);
+  if (error) throw new Error(`Unable to load company payments: ${error.message}`);
   return ((data ?? []) as ClientPaymentRow[]).map(toClientPayment);
 }
 
@@ -188,7 +188,7 @@ export async function createClientPayment(organizationId: string, input: ClientP
     p_notes: input.notes ?? null,
     p_idempotency_key: input.idempotencyKey ?? `client-payment-${crypto.randomUUID()}`,
   });
-  if (error) throw new Error(`Unable to record client payment: ${error.message}`);
+  if (error) throw new Error(`Unable to record company payment: ${error.message}`);
   const { data, error: loadError } = await supabase
     .from("client_payments")
     .select(clientPaymentSelect)
@@ -213,7 +213,7 @@ export async function softDeleteClientPayment(organizationId: string, paymentId:
     p_payment_id: paymentId,
     p_reason: "Deleted from the payment ledger UI",
   });
-  if (error) throw new Error(`Unable to delete client payment: ${error.message}. Apply migration 016_payment_void_workflows.sql if this workflow is unavailable.`);
+  if (error) throw new Error(`Unable to delete company payment: ${error.message}. Apply migration 016_payment_void_workflows.sql if this workflow is unavailable.`);
 }
 
 export async function listDriverPayments(organizationId: string): Promise<DriverPayment[]> {

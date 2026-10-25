@@ -28,6 +28,8 @@ import { env } from "../config/env";
 import { canApproveExpenses, canManageAttachments, canManageExpenses } from "../utils/permissions";
 
 const paidByOptions: ExpensePaidBy[] = ["company", "driver", "client", "other"];
+// "company" is our own business; "client" is shown to users as "Company".
+const paidByLabels: Record<ExpensePaidBy, string> = { company: "Business", driver: "Driver", client: "Company", other: "Other" };
 const expenseCategoryOptions = Array.from(EXPENSE_CATEGORIES);
 
 export function ExpensesPage({
@@ -125,7 +127,7 @@ export function ExpensesPage({
       <KpiGrid
         items={[
           ["Total Expenses", money(totalExpenses), "Actual cost across expense rows"],
-          ["Billable", money(getClientBillableExpensesTotal(expenses)), "Can be invoiced to client"],
+          ["Billable", money(getClientBillableExpensesTotal(expenses)), "Can be invoiced to company"],
           ["Reimbursable", money(getDriverReimbursableExpensesTotal(expenses)), "Driver settlement eligible"],
           ["Awaiting Approval", money(awaitingApproval), "Pending finance review"],
         ]}
@@ -156,7 +158,7 @@ export function ExpensesPage({
                 <th>Shipment</th>
                 <th>Category</th>
                 <th className="num text-right">Actual Cost</th>
-                <th className="num text-right">Client Bill</th>
+                <th className="num text-right">Company Bill</th>
                 <th className="num text-right">Markup</th>
                 <th>Paid By</th>
                 <th>Billable</th>
@@ -178,7 +180,7 @@ export function ExpensesPage({
                     <td className="num">{money(getExpenseActualCost(expense))}</td>
                     <td className="num">{money(getExpenseClientBillAmount(expense))}</td>
                     <td className="num">{money(getExpenseMarkupProfit(expense))}</td>
-                    <td>{labelize(expense.paidBy)}</td>
+                    <td>{paidByLabels[expense.paidBy] ?? labelize(expense.paidBy)}</td>
                     <td>
                       <StatusBadge status={expense.clientBillable ? "Billable" : "Not Billable"} />
                     </td>
@@ -326,7 +328,7 @@ function ExpenseFiltersBar({
         <SelectField label="Approval" value={filters.approved ?? ""} onChange={(value) => update("approved", value)} options={["approved", "pending"]} includeAll />
         <SelectField label="Billable" value={billableFilter} onChange={setBillableFilter} options={["true", "false"]} includeAll />
         <SelectField label="Reimbursable" value={reimbursableFilter} onChange={setReimbursableFilter} options={["true", "false"]} includeAll />
-        <SelectField label="Paid By" value={filters.paidBy ?? ""} onChange={(value) => update("paidBy", value)} options={paidByOptions} includeAll />
+        <SelectField label="Paid By" value={filters.paidBy ?? ""} onChange={(value) => update("paidBy", value)} options={paidByOptions} optionLabels={paidByLabels} includeAll />
         <label className="field">
           <span>Shipment / Invoice</span>
           <select value={filters.shipmentId ?? ""} onChange={(event) => update("shipmentId", event.target.value)}>
@@ -624,7 +626,7 @@ export function ExpenseDialog({
           />
         </label>
         <label className="field">
-          <span>Client Bill Amount</span>
+          <span>Company Bill Amount</span>
           <input
             type="number"
             min="0"
@@ -642,7 +644,7 @@ export function ExpenseDialog({
         <section className="form-section">
           <div className="form-section-header">
             <h3>Financial Treatment</h3>
-            <p>These rules determine client billing, driver reimbursement, cost, and approval.</p>
+            <p>These rules determine company billing, driver reimbursement, cost, and approval.</p>
           </div>
           <div className="form-grid">
             <label className="field">
@@ -652,9 +654,9 @@ export function ExpenseDialog({
                 onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value as ShipmentExpenseInput["paidBy"] }))}
                 disabled={Boolean(form.driverReimbursable)}
               >
-                <option value="company">Company</option>
+                <option value="company">Business</option>
                 <option value="driver">Driver</option>
-                <option value="client">Client</option>
+                <option value="client">Company</option>
                 <option value="other">Other</option>
               </select>
             </label>
@@ -684,7 +686,7 @@ export function ExpenseDialog({
                   includedInInvoice: event.target.checked ? current.includedInInvoice : false,
                 }))}
               />
-              <span>Bill this expense to the client</span>
+              <span>Bill this expense to the company</span>
             </label>
             <label className="field checkbox-field">
               <input

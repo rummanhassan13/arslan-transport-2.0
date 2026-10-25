@@ -231,7 +231,7 @@ function ShipmentTable({
           </div>
 
           <select className="compact-select" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
-            <option value="">All Customers</option>
+            <option value="">All Companies</option>
             {activeClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
 
@@ -261,7 +261,7 @@ function ShipmentTable({
             <div className="shipment-mobile-card-meta">
               <span><UserRound size={13} /> {row.assignments && row.assignments.length > 1 ? `${row.driverName} + ${row.assignments.length - 1}` : row.driverName}</span>
               <span><TruckIcon size={13} /> {row.vehicleNo}</span>
-              <StatusBadge status={row.clientPaymentStatus} label={`Client ${row.clientPaymentStatus}`} />
+              <StatusBadge status={row.clientPaymentStatus} label={`Company ${row.clientPaymentStatus}`} />
               <StatusBadge status={row.driverPaymentStatus} label={`Driver ${row.driverPaymentStatus}`} />
             </div>
             <div className="shipment-mobile-card-footer">
@@ -289,7 +289,7 @@ function ShipmentTable({
           <thead>
             <tr>
               <th>Shipment</th>
-              <th>Client & Route</th>
+              <th>Company & Route</th>
               <th>Assignment</th>
               <th className="num text-right">Company Total</th>
               <th className="num text-right">Driver Total</th>
@@ -325,7 +325,7 @@ function ShipmentTable({
                 <td>
                   <div className="flex flex-col items-start gap-1.5">
                     <StatusBadge status={row.invoiceStatus} label={`Invoice · ${row.invoiceStatus}`} />
-                    <StatusBadge status={row.clientPaymentStatus} label={`Client · ${row.clientPaymentStatus}`} />
+                    <StatusBadge status={row.clientPaymentStatus} label={`Company · ${row.clientPaymentStatus}`} />
                     <StatusBadge status={row.driverPaymentStatus} label={`Driver · ${row.driverPaymentStatus}`} />
                   </div>
                 </td>

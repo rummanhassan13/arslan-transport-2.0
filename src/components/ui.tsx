@@ -273,6 +273,7 @@ export function SelectField({
   options,
   includeAll = false,
   disabled,
+  optionLabels,
 }: {
   label: string;
   value: string;
@@ -280,6 +281,7 @@ export function SelectField({
   options: string[];
   includeAll?: boolean;
   disabled?: boolean;
+  optionLabels?: Record<string, string>;
 }) {
   return (
     <label className="field">
@@ -288,7 +290,7 @@ export function SelectField({
         {includeAll && <option value="">All</option>}
         {options.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {optionLabels?.[option] ?? option}
           </option>
         ))}
       </select>

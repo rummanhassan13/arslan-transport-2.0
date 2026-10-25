@@ -89,7 +89,7 @@ export function ShipmentSummaryModal({
     const combined = [
       ...shipmentClientPayments.map(p => ({
         id: p.id,
-        type: p.direction === -1 ? 'Client Payment Reversal' : 'Client Payment',
+        type: p.direction === -1 ? 'Company Payment Reversal' : 'Company Payment',
         amount: signedClientPaymentAmount(p),
         date: p.paymentDate,
         reversible: p.direction !== -1,
@@ -204,7 +204,7 @@ export function ShipmentSummaryModal({
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Customer</span>
+                      <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Company</span>
                       <span className="text-sm font-semibold">{shipment.customer}</span>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -389,7 +389,7 @@ export function ShipmentSummaryModal({
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-[var(--ink-3)] uppercase font-semibold" title="Company Rate + Client Billed Expenses">Company Total</span>
+                    <span className="text-xs text-[var(--ink-3)] uppercase font-semibold" title="Company Rate + Company Billed Expenses">Company Total</span>
                     <span className="text-base font-bold text-[var(--accent-strong)]">{money(financials.companyTotal)}</span>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -467,7 +467,7 @@ export function ShipmentSummaryModal({
                     )}
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Client Payment</span>
+                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Company Payment</span>
                     <div className="mt-0.5"><StatusBadge status={shipment.clientPaymentStatus || "Pending"} /></div>
                   </div>
                   <div className="flex flex-col gap-1">

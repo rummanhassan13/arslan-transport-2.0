@@ -7,7 +7,7 @@ import { DriversPage } from "./DriversPage";
 import { TruckTypesPage } from "./TruckTypesPage";
 import { VehiclesPage } from "./VehiclesPage";
 
-type DirectoryTab = "Clients" | "Drivers" | "Vehicles" | "Truck Types";
+type DirectoryTab = "Companies" | "Drivers" | "Vehicles" | "Truck Types";
 
 export function DirectoryPage({ 
   shipments, 
@@ -18,7 +18,7 @@ export function DirectoryPage({
   clientPayments: ClientPayment[];
   driverPayments: DriverPayment[];
 }) {
-  const [tab, setTab] = useState<DirectoryTab>("Clients");
+  const [tab, setTab] = useState<DirectoryTab>("Companies");
   const activeClients = new Set(shipments.map((shipment) => shipment.customer)).size;
   const activeDrivers = new Set(shipments.map((shipment) => shipment.driverName)).size;
   const pendingClientBalances = shipments
@@ -31,18 +31,18 @@ export function DirectoryPage({
     <>
       <PageTitle
         title="Directory"
-        subtitle="Manage clients, drivers, and core business records."
-        trailing={<PeriodSelector value={tab} options={["Clients", "Drivers", "Vehicles", "Truck Types"]} onChange={setTab} />}
+        subtitle="Manage companies, drivers, and core business records."
+        trailing={<PeriodSelector value={tab} options={["Companies", "Drivers", "Vehicles", "Truck Types"]} onChange={setTab} />}
       />
       <KpiGrid
         items={[
-          ["Active Clients", activeClients.toString(), "Linked to shipment records"],
+          ["Active Companies", activeClients.toString(), "Linked to shipment records"],
           ["Active Drivers", activeDrivers.toString(), "Linked to shipment records"],
-          ["Pending Client Balances", money(pendingClientBalances), "Open customer receivables"],
+          ["Pending Company Balances", money(pendingClientBalances), "Open company receivables"],
           ["Driver Balances Due", money(driverBalancesDue), "Unsettled driver amounts"],
         ]}
       />
-      {tab === "Clients" && <ClientsPage shipments={shipments} clientPayments={clientPayments} embedded />}
+      {tab === "Companies" && <ClientsPage shipments={shipments} clientPayments={clientPayments} embedded />}
       {tab === "Drivers" && <DriversPage shipments={shipments} driverPayments={driverPayments} embedded />}
       {tab === "Vehicles" && <VehiclesPage shipments={shipments} />}
       {tab === "Truck Types" && <TruckTypesPage shipments={shipments} />}
