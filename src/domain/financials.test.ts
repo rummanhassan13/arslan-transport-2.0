@@ -207,6 +207,23 @@ describe("shipment golden scenarios", () => {
     expect(result.totalCost).toBe(700);
   });
 
+  it("counts a billed, driver-reimbursed expense once in cost and adds it to the driver's balance", () => {
+    const base = calculateShipmentProjection(shipment());
+    const result = calculateShipmentProjection(shipment(), [expense({
+      shipmentAssignmentId: "assignment-1",
+      paidBy: "driver",
+      driverReimbursable: true,
+      clientBillable: true,
+      includedInInvoice: true,
+      actualCostAmount: 100,
+      clientBillAmount: 150,
+    })]);
+    expect(result.estimatedClientRevenue).toBe(base.estimatedClientRevenue + 150);
+    expect(result.totalCost).toBe(base.totalCost + 100);
+    expect(result.estimatedProfit).toBe(base.estimatedProfit + 50);
+    expect(result.driverBalance).toBe(base.driverBalance + 100);
+  });
+
   it("does not authorize unapproved expenses", () => {
     const result = calculateShipmentProjection(shipment(), [expense({ approved: false, clientBillable: true })]);
     expect(result.estimatedClientRevenue).toBe(1000);

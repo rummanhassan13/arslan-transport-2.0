@@ -262,6 +262,10 @@ function ShipmentTable({
                 <span>Company total</span>
                 <strong className="num">{money(row.companyTotal)}</strong>
               </div>
+              <div className="shipment-mobile-card-total">
+                <span>Driver pending</span>
+                <strong className="num">{money(row.pending)}</strong>
+              </div>
               <div className="shipment-mobile-card-actions" onClick={(event) => event.stopPropagation()}>
                 <button className="icon-btn" onClick={() => openSummary(row)} aria-label={`View ${row.invoice}`} type="button"><Eye size={15} /></button>
                 {canManage && (
@@ -286,6 +290,7 @@ function ShipmentTable({
               <th>Assignment</th>
               <th className="num text-right">Company Total</th>
               <th className="num text-right">Driver Total</th>
+              <th className="num text-right">Driver Pending</th>
               <th className="num text-right">Profit</th>
               <th>Financial Status</th>
               <th className="text-center w-24">Actions</th>
@@ -314,6 +319,7 @@ function ShipmentTable({
                 </td>
                 <td className="num">{money(row.companyTotal)}</td>
                 <td className="num">{money(row.driverTotal)}</td>
+                <td className="num">{money(row.pending)}</td>
                 <td className="num">{money(row.netProfit)}</td>
                 <td>
                   <div className="flex flex-col items-start gap-1.5">
