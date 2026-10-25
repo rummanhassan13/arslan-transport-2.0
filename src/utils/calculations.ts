@@ -9,7 +9,7 @@ import {
   sumMoney,
 } from "../domain/financials";
 
-export { getExpenseActualCost, getExpenseClientBillAmount, getExpenseMarkupProfit } from "../domain/financials";
+export { getExpenseActualCost, getExpenseClientBillAmount, getExpenseDisplayAmount, getExpenseMarkupProfit } from "../domain/financials";
 
 export type DashboardPeriod = "7D" | "30D" | "QTD" | "YTD";
 

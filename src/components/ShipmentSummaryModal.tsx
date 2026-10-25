@@ -3,7 +3,7 @@ import { MoveRight, Plus, Printer, Trash2 } from "lucide-react";
 import { Modal, StatusBadge } from "./ui";
 import type { Shipment, ShipmentExpense, ShipmentExpenseInput, ShipmentAttachment, ClientPayment, DriverPayment } from "../types/domain";
 import { money, formatDate, labelize } from "../utils/formatters";
-import { calculateShipmentFinancials } from "../utils/calculations";
+import { calculateShipmentFinancials, getExpenseDisplayAmount } from "../utils/calculations";
 import { ExpenseDialog } from "../pages/ExpensesPage";
 import { useAuth } from "../hooks/useAuth";
 import { env } from "../config/env";
@@ -274,7 +274,7 @@ export function ShipmentSummaryModal({
                             {expense.notes && <div className="text-[10px] text-[var(--ink-3)] mt-0.5 truncate" title={expense.notes}>{expense.notes}</div>}
                           </div>
                           <div className="font-semibold text-right text-[var(--ink-2)] truncate">
-                            {money(expense.amount)}
+                            {money(getExpenseDisplayAmount(expense))}
                           </div>
                           <div className="text-right text-[var(--ink-3)] truncate">
                             {new Date(expense.expenseDate).toLocaleDateString("en-US", { day: '2-digit', month: 'short' })}
@@ -303,7 +303,7 @@ export function ShipmentSummaryModal({
                 <div className="mt-3 pt-3 border-t border-[var(--line-soft)] flex justify-between items-center font-bold text-sm">
                   <span>Total Expenses:</span>
                   <span className="text-[var(--accent-strong)]">
-                    {money(shipmentExpenses.reduce((sum, e) => sum + e.amount, 0))}
+                    {money(shipmentExpenses.reduce((sum, e) => sum + getExpenseDisplayAmount(e), 0))}
                   </span>
                 </div>
               </div>

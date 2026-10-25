@@ -3,6 +3,7 @@ import type { ClientPayment, DriverPayment, Invoice, Shipment, ShipmentExpense }
 import {
   calculateInvoiceBalance,
   calculateShipmentProjection,
+  getExpenseDisplayAmount,
   moneyToMinor,
   roundMoney,
   signedClientPaymentAmount,
@@ -149,6 +150,16 @@ function clientPayment(overrides: Partial<ClientPayment> = {}): ClientPayment {
     ...overrides,
   };
 }
+
+describe("expense display amount", () => {
+  it("shows the company bill amount for billed expenses", () => {
+    expect(getExpenseDisplayAmount(expense({ clientBillable: true, actualCostAmount: 100, clientBillAmount: 150 }))).toBe(150);
+  });
+
+  it("shows the actual cost for expenses not billed to the company", () => {
+    expect(getExpenseDisplayAmount(expense({ clientBillable: false, actualCostAmount: 100, clientBillAmount: 150 }))).toBe(100);
+  });
+});
 
 describe("canonical money arithmetic", () => {
   it("rounds at the minor-unit boundary", () => {

@@ -90,6 +90,11 @@ export function getExpenseClientBillAmount(expense: ShipmentExpense): number {
   return roundMoney(expense.clientBillAmount ?? expense.amount ?? 0);
 }
 
+/** Amount shown for an expense in shipment views: what the company is billed, or the actual cost when not billed. */
+export function getExpenseDisplayAmount(expense: ShipmentExpense): number {
+  return expense.clientBillable ? getExpenseClientBillAmount(expense) : getExpenseActualCost(expense);
+}
+
 export function getExpenseMarkupProfit(expense: ShipmentExpense): number {
   return roundMoney(getExpenseClientBillAmount(expense) - getExpenseActualCost(expense));
 }
