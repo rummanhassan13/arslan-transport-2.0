@@ -1254,6 +1254,25 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   padding: 12px 22px;
 }
 
+.attachment-upload-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.4fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.attachment-upload-row .btn-primary {
+  height: 40px;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .attachment-upload-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .shipment-driver-leg {
   border: 1px solid var(--line);
   border-radius: 12px;

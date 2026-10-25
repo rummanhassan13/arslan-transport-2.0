@@ -129,7 +129,36 @@ export function ShipmentAttachmentManager({
       {!shipmentId && <EmptyState text="Save the shipment first to add documents." />}
       {shipmentId && (
         <>
-          {!readOnly && (
+          {!readOnly && compact && (
+            <div className="attachment-upload-row">
+              <label className="field">
+                <span>Category</span>
+                <select value={category} onChange={(event) => setCategory(event.target.value as ShipmentAttachmentCategory)}>
+                  {SHIPMENT_ATTACHMENT_CATEGORIES.map((option) => (
+                    <option key={option} value={option}>
+                      {getShipmentAttachmentCategoryLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Notes</span>
+                <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional note" />
+              </label>
+              <button className="btn-primary" type="button" disabled={!canUpload || uploading} onClick={() => fileInputRef.current?.click()}>
+                <UploadCloud size={15} />
+                {uploading ? "Uploading..." : "Upload"}
+              </button>
+              <input
+                ref={fileInputRef}
+                className="hidden"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={uploadSelectedFile}
+              />
+            </div>
+          )}
+          {!readOnly && !compact && (
             <div className="filter-card">
               <div className="filter-toolbar">
                 <div>

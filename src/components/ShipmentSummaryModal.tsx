@@ -189,7 +189,7 @@ export function ShipmentSummaryModal({
             <div className="flex flex-col gap-6">
               
               {/* Main Info */}
-              <div className="border border-[var(--line-soft)] rounded-[var(--radius)] p-5 bg-[var(--bg-hover)]">
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-5 bg-[var(--bg-hover)]">
                 <h3 className="text-sm font-bold text-[var(--ink-2)] border-b border-[var(--line-soft)] pb-2 mb-4 uppercase tracking-wider">
                   Main Info
                 </h3>
@@ -229,7 +229,7 @@ export function ShipmentSummaryModal({
               </div>
 
               {/* Remarks Block */}
-              <div className="border border-[var(--line-soft)] rounded-[var(--radius)] p-4">
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-4">
                 <h3 className="text-sm font-bold text-[var(--ink-2)] mb-2 uppercase tracking-wider">Remarks</h3>
                 <div className="text-sm text-[var(--ink-2)] whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto pr-2">
                   {shipment.remarks || "No remarks provided for this shipment."}
@@ -237,7 +237,7 @@ export function ShipmentSummaryModal({
               </div>
 
               {/* Expenses Block */}
-              <div className="border border-[var(--line-soft)] rounded-[var(--radius)] p-4">
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Expenses</h3>
                   {canManage && (
@@ -315,7 +315,7 @@ export function ShipmentSummaryModal({
               </div>
             
               {/* Payments Block */}
-              <div className="border border-[var(--line-soft)] rounded-[var(--radius)] p-4 mt-6">
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-4 -mt-2">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Payments</h3>
                 </div>
@@ -382,19 +382,25 @@ export function ShipmentSummaryModal({
             <div className="flex flex-col gap-6">
               
               {/* Financial Summary */}
-              <div className="border border-[var(--line-soft)] rounded-[var(--radius)] p-5 bg-[var(--bg-hover)] h-fit">
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-5 bg-[var(--bg-hover)] h-fit">
                 <h3 className="text-sm font-bold text-[var(--ink-2)] border-b border-[var(--line-soft)] pb-2 mb-4 uppercase tracking-wider">
                   Financial Summary
                 </h3>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="flex flex-col gap-1">
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="flex flex-col gap-1 min-w-0">
                     <span className="text-xs text-[var(--ink-3)] uppercase font-semibold" title="Company Rate + Company Billed Expenses">Company Total</span>
                     <span className="text-base font-bold text-[var(--accent-strong)]">{money(financials.companyTotal)}</span>
                   </div>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1 min-w-0">
                     <span className="text-xs text-[var(--ink-3)] uppercase font-semibold" title="Driver Rate + Reimbursable Expenses">Driver Total</span>
                     <span className="text-base font-bold text-[var(--ink-2)]">{money(financials.driverTotal)}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Total Profit</span>
+                    <span className={`text-base font-bold ${financials.estimatedProfit >= 0 ? "text-[var(--accent-strong)]" : "text-[var(--danger-color)]"}`}>
+                      {money(financials.estimatedProfit)}
+                    </span>
                   </div>
                 </div>
 
@@ -424,15 +430,6 @@ export function ShipmentSummaryModal({
                     </div>
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 gap-4 mb-4 border-t border-[var(--line-soft)] pt-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Total Profit</span>
-                    <span className={`text-base font-bold ${financials.estimatedProfit >= 0 ? "text-[var(--accent-strong)]" : "text-[var(--danger-color)]"}`}>
-                      {money(financials.estimatedProfit)}
-                    </span>
-                  </div>
-                </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 border-t border-[var(--line-soft)] pt-4">
                   <div className="flex flex-col gap-1">
@@ -478,7 +475,7 @@ export function ShipmentSummaryModal({
               </div>
 
               {/* Attachments Block */}
-              <div className="border border-[var(--line-soft)] rounded-[var(--radius)] p-5">
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-5">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Attachments</h3>
                 </div>
