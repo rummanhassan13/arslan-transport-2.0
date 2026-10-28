@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from "react";
-import { Download, Eye, LoaderCircle, RefreshCcw, Trash2, UploadCloud } from "lucide-react";
+import { Download, LoaderCircle, RefreshCcw, Trash2, UploadCloud } from "lucide-react";
 import { SHIPMENT_ATTACHMENT_CATEGORIES, getShipmentAttachmentCategoryLabel } from "../../constants/attachmentCategories";
 import { env } from "../../config/env";
 import { useShipmentAttachments } from "../../hooks/useShipmentAttachments";
@@ -269,16 +269,12 @@ function ShipmentDocumentCard({
       {linkedExpense && <small className="attachment-meta">Linked expense: {labelize(linkedExpense.category)} - {money(getExpenseActualCost(linkedExpense))}</small>}
       {attachment.notes && <small className="attachment-meta">{attachment.notes}</small>}
       <div className="attachment-actions">
-        <button className="table-action" type="button" onClick={onPreview}>
-          <Eye size={13} /> Preview
-        </button>
-        <button className="table-action" disabled={downloading} type="button" onClick={onDownload}>
-          {downloading ? <LoaderCircle className="document-spinner" size={13} /> : <Download size={13} />}
-          {downloading ? "Preparing" : "Download"}
+        <button className="icon-btn" disabled={downloading} type="button" onClick={onDownload} title="Download" aria-label={`Download ${attachment.fileName}`}>
+          {downloading ? <LoaderCircle className="document-spinner" size={14} /> : <Download size={14} />}
         </button>
         {!readOnly && (
-          <button className="table-action" type="button" onClick={onDelete}>
-            <Trash2 size={13} /> Delete
+          <button className="icon-btn" type="button" onClick={onDelete} title="Delete" aria-label={`Delete ${attachment.fileName}`}>
+            <Trash2 size={14} />
           </button>
         )}
       </div>
