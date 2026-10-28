@@ -870,6 +870,11 @@ tbody tr:last-child td { border-bottom: 0; }
   background: var(--accent-soft); color: var(--accent-strong);
 }
 .status-overdue { background: rgba(176, 106, 114, 0.14); color: var(--danger); }
+.status-select {
+  border: 0; cursor: pointer; font-family: inherit;
+  padding-right: 4px; max-width: 100%;
+}
+.status-select:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 1px; }
 
 /* ─── Forms (kept simple) ───────────────────────────────────────────── */
 .field { display: grid; gap: 6px; }

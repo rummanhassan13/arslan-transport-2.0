@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, Eye, MoveRight, Pencil, Search, Trash2, Truck as TruckIcon, UserRound, X } from "lucide-react";
-import type { Shipment, ShipmentFilters, DriverPayment, Client } from "../types/domain";
+import type { Shipment, ShipmentFilters, DriverPayment, Client, InvoiceStatus } from "../types/domain";
 import { env } from "../config/env";
 import { useAuth } from "../hooks/useAuth";
 import { filterShipments, sum } from "../utils/calculations";
 import { formatDate, money } from "../utils/formatters";
 import { EmptyState, KpiGrid, PageTitle, SkeletonTable, StatusBadge } from "../components/ui";
-import { canManageShipments } from "../utils/permissions";
+import { canManageInvoices, canManagePayments, canManageShipments } from "../utils/permissions";
 
+// Display statuses a user can set by hand; Paid/Overdue are derived from payments.
+const INVOICE_STATUS_OPTIONS: InvoiceStatus[] = ["Draft", "Sent", "Cancelled"];
 
 export function ShipmentsPage({
   shipments,
@@ -20,6 +22,7 @@ export function ShipmentsPage({
   onEditShipment,
   deleteShipment,
   driverPayments,
+  onUpdateInvoiceStatus,
 }: {
   shipments: Shipment[];
   clients?: Client[];
@@ -31,6 +34,7 @@ export function ShipmentsPage({
   onEditShipment: (shipment: Shipment) => void;
   deleteShipment?: (shipmentId: string) => Promise<void>;
   driverPayments?: DriverPayment[];
+  onUpdateInvoiceStatus?: (shipmentId: string, status: InvoiceStatus) => void;
 }) {
   const { role } = useAuth();
   const [datePreset, setDatePreset] = useState<"this_month" | "last_month" | "custom">("this_month");
@@ -39,6 +43,7 @@ export function ShipmentsPage({
   const [customerFilter, setCustomerFilter] = useState("");
   const [actionError, setActionError] = useState("");
   const canManage = env.demoMode || canManageShipments(role);
+  const canManageFinance = env.demoMode || (canManageInvoices(role) && canManagePayments(role));
 
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -131,6 +136,7 @@ export function ShipmentsPage({
         customTo={customTo}
         setCustomTo={setCustomTo}
         driverPayments={driverPayments}
+        onUpdateInvoiceStatus={canManageFinance ? onUpdateInvoiceStatus : undefined}
       />
     </>
   );
@@ -154,6 +160,7 @@ function ShipmentTable({
   customTo,
   setCustomTo,
   driverPayments,
+  onUpdateInvoiceStatus,
 }: {
   shipments: Shipment[];
   openSummary: (shipment: Shipment) => void;
@@ -172,6 +179,7 @@ function ShipmentTable({
   customTo: string;
   setCustomTo: (date: string) => void;
   driverPayments?: DriverPayment[];
+  onUpdateInvoiceStatus?: (shipmentId: string, status: InvoiceStatus) => void;
 }) {
   const activeCount = (query ? 1 : 0) + (customerFilter ? 1 : 0);
 
@@ -323,7 +331,20 @@ function ShipmentTable({
                 <td className="num">{money(row.netProfit)}</td>
                 <td>
                   <div className="flex flex-col items-start gap-1.5">
-                    <StatusBadge status={row.invoiceStatus} label={`Invoice · ${row.invoiceStatus}`} />
+                    {onUpdateInvoiceStatus ? (
+                      <select
+                        className={`status status-${row.invoiceStatus.toLowerCase().replaceAll(" ", "-")} status-select`}
+                        value={row.invoiceStatus}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => onUpdateInvoiceStatus(row.id, event.target.value as InvoiceStatus)}
+                        title="Change invoice status"
+                        aria-label={`Invoice status for ${row.invoice}`}
+                      >
+                        {INVOICE_STATUS_OPTIONS.map((status) => <option key={status} value={status}>Invoice · {status}</option>)}
+                      </select>
+                    ) : (
+                      <StatusBadge status={row.invoiceStatus} label={`Invoice · ${row.invoiceStatus}`} />
+                    )}
                     <StatusBadge status={row.clientPaymentStatus} label={`Company · ${row.clientPaymentStatus}`} />
                     <StatusBadge status={row.driverPaymentStatus} label={`Driver · ${row.driverPaymentStatus}`} />
                   </div>
