@@ -615,6 +615,7 @@ function DemoApp() {
             onEditShipment={(row) => setEditShipmentId(row.id)}
             deleteShipment={deleteShipment}
             driverPayments={driverPayments}
+            onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
           />
         )}
         {view === "Directory" && (
