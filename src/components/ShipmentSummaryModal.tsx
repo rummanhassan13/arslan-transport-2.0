@@ -148,9 +148,6 @@ export function ShipmentSummaryModal({
               {canManage && <button className="btn-ghost" onClick={() => setExpenseDialog("new")} type="button">
                 Add Expense
               </button>}
-              {canManageFinance && <button className="btn-ghost" onClick={() => setPaymentDialog({ shipmentId: shipment.id })} type="button">
-                Record Payment
-              </button>}
               {previewInvoice && (
                 <button className="btn-ghost" onClick={() => previewInvoice(shipment)} type="button">
                   View Invoice
@@ -219,28 +216,54 @@ export function ShipmentSummaryModal({
                       <span className="text-sm font-semibold">{shipment.truckType || "N/A"}</span>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Remarks Block */}
-              <div className="border border-[var(--line)] rounded-[var(--radius)] p-4">
-                <h3 className="text-sm font-bold text-[var(--ink-2)] mb-2 uppercase tracking-wider">Remarks</h3>
-                <div className="text-sm text-[var(--ink-2)] whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto pr-2">
-                  {shipment.remarks || "No remarks provided for this shipment."}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Shipment Status</span>
+                      {onUpdateShipmentStatus && canManageOperations && nextOperationalStatuses.length > 0 ? (
+                        <select
+                          className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
+                          value={shipment.status ?? "pending"}
+                          onChange={(event) => onUpdateShipmentStatus(shipment.id, event.target.value as NonNullable<Shipment["status"]>)}
+                        >
+                          <option value={shipment.status ?? "pending"}>{labelize(shipment.status ?? "pending")}</option>
+                          {nextOperationalStatuses.map((status) => <option key={status} value={status}>{labelize(status)}</option>)}
+                        </select>
+                      ) : (
+                        <StatusBadge status={labelize(shipment.status ?? "pending")} />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Invoice Status</span>
+                      {onUpdateInvoiceStatus && canManageFinance ? (
+                        <select
+                          className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
+                          value={shipment.invoiceStatus || "Draft"}
+                          onChange={(e) => onUpdateInvoiceStatus(shipment.id, e.target.value as any)}
+                        >
+                          <option value="Draft">Draft</option>
+                          <option value="Sent">Sent</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      ) : (
+                        <StatusBadge status={shipment.invoiceStatus || "Draft"} />
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Expenses Block */}
               <div className="border border-[var(--line)] rounded-[var(--radius)] p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Expenses</h3>
+                  <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Company Expenses</h3>
                   {canManage && (
                     <button
-                      className="table-action flex items-center gap-1 font-semibold text-xs"
+                      className="btn-primary"
                       type="button"
                       onClick={() => setExpenseDialog("new")}
                     >
-                      <Plus size={13} /> Add
+                      <Plus size={13} /> Add Expense
                     </button>
                   )}
                 </div>
@@ -308,32 +331,25 @@ export function ShipmentSummaryModal({
                 </div>
               </div>
             
-              {/* Driver payments: pay the driver for this shipment */}
-              {canManageFinance && (
-                <div className="border border-[var(--line)] rounded-[var(--radius)] px-4 py-3 -mt-2 flex items-center justify-between gap-3">
-                  <div className="flex flex-col">
-                    <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Driver Payments</h3>
-                    <span className="text-xs text-[var(--ink-3)]">Pending {money(shipment.pending)}</span>
-                  </div>
-                  <button
-                    className="btn-primary"
-                    type="button"
-                    onClick={() => setPaymentDialog({
-                      type: "Driver",
-                      shipmentId: shipment.id,
-                      // One driver: lock it in; several: let the form default to the driver still owed money.
-                      ...(shipment.assignments?.length === 1 && shipment.assignments[0].driverId ? { driverId: shipment.assignments[0].driverId } : {}),
-                    })}
-                  >
-                    Pay Driver
-                  </button>
-                </div>
-              )}
 
               {/* Payments Block */}
-              <div className="border border-[var(--line)] rounded-[var(--radius)] p-4 -mt-2">
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Payments</h3>
+                  <h3 className="text-sm font-bold text-[var(--ink-2)] uppercase tracking-wider">Driver Payments</h3>
+                  {canManageFinance && (
+                    <button
+                      className="btn-primary"
+                      type="button"
+                      onClick={() => setPaymentDialog({
+                        type: "Driver",
+                        shipmentId: shipment.id,
+                        // One driver: lock it in; several: let the form default to the driver still owed money.
+                        ...(shipment.assignments?.length === 1 && shipment.assignments[0].driverId ? { driverId: shipment.assignments[0].driverId } : {}),
+                      })}
+                    >
+                      <Plus size={13} /> Pay Driver
+                    </button>
+                  )}
                 </div>
                 
                 {allPayments.length === 0 ? (
@@ -391,6 +407,10 @@ export function ShipmentSummaryModal({
                     </div>
                   </div>
                 )}
+                <div className="mt-3 pt-3 border-t border-[var(--line-soft)] flex justify-between items-center font-bold text-sm">
+                  <span>Pending:</span>
+                  <span className="text-[var(--accent-strong)]">{money(shipment.pending)}</span>
+                </div>
               </div>
             </div>
 
@@ -419,74 +439,13 @@ export function ShipmentSummaryModal({
                     </span>
                   </div>
                 </div>
+              </div>
 
-                {shipment.assignments && shipment.assignments.length > 0 ? (
-                  <div className="mb-4 border-t border-[var(--line-soft)] pt-4">
-                    <span className="text-xs text-[var(--ink-3)] uppercase font-semibold mb-2 block">Driver Breakdowns</span>
-                    <div className="flex flex-col gap-3">
-                      {shipment.assignments.map((assignment, idx) => (
-                        <div key={assignment.id ?? `${assignment.driverId ?? "driver"}-${idx}`} className="grid grid-cols-4 gap-2 text-sm bg-[var(--surface)] text-[var(--ink)] p-2 rounded border border-[var(--line-soft)]">
-                          <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Driver</span><span className="font-semibold truncate" title={assignment.driverName}>{assignment.driverName}</span></div>
-                          <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Rate</span><span className="font-semibold truncate">{money(assignment.driverRate)}</span></div>
-                          <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Paid</span><span className="font-semibold truncate">{money(assignment.totalPaid || 0)}</span></div>
-                          <div className="flex flex-col min-w-0"><span className="text-[10px] text-[var(--ink-3)] uppercase font-bold">Pending</span><span className="font-semibold truncate">{money(assignment.pending || 0)}</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4 mb-4 border-t border-[var(--line-soft)] pt-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Driver Advance</span>
-                      <span className="text-base font-bold text-[var(--ink-2)]">{money(shipment.advance)}</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Driver Pending</span>
-                      <span className="text-base font-bold text-[var(--ink-2)]">{money(shipment.pending)}</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 border-t border-[var(--line-soft)] pt-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Shipment Status</span>
-                    {onUpdateShipmentStatus && canManageOperations && nextOperationalStatuses.length > 0 ? (
-                      <select
-                        className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
-                        value={shipment.status ?? "pending"}
-                        onChange={(event) => onUpdateShipmentStatus(shipment.id, event.target.value as NonNullable<Shipment["status"]>)}
-                      >
-                        <option value={shipment.status ?? "pending"}>{labelize(shipment.status ?? "pending")}</option>
-                        {nextOperationalStatuses.map((status) => <option key={status} value={status}>{labelize(status)}</option>)}
-                      </select>
-                    ) : (
-                      <StatusBadge status={labelize(shipment.status ?? "pending")} />
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Invoice Status</span>
-                    {onUpdateInvoiceStatus && canManageFinance ? (
-                      <select
-                        className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
-                        value={shipment.invoiceStatus || "Draft"}
-                        onChange={(e) => onUpdateInvoiceStatus(shipment.id, e.target.value as any)}
-                      >
-                        <option value="Draft">Draft</option>
-                        <option value="Sent">Sent</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    ) : (
-                      <StatusBadge status={shipment.invoiceStatus || "Draft"} />
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Company Payment</span>
-                    <div className="mt-0.5"><StatusBadge status={shipment.clientPaymentStatus || "Pending"} /></div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Driver Payment</span>
-                    <div className="mt-0.5"><StatusBadge status={shipment.driverPaymentStatus || "Pending"} /></div>
-                  </div>
+              {/* Remarks Block */}
+              <div className="border border-[var(--line)] rounded-[var(--radius)] p-4">
+                <h3 className="text-sm font-bold text-[var(--ink-2)] mb-2 uppercase tracking-wider">Remarks</h3>
+                <div className="text-sm text-[var(--ink-2)] whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto pr-2">
+                  {shipment.remarks || "No remarks provided for this shipment."}
                 </div>
               </div>
 
