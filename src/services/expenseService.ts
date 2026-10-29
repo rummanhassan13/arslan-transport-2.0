@@ -24,6 +24,7 @@ type ExpenseRow = {
   category: ShipmentExpense["category"];
   amount: number;
   client_bill_amount?: number | null;
+  driver_pay_amount?: number | null;
   paid_by: ShipmentExpense["paidBy"];
   client_billable: boolean;
   driver_reimbursable: boolean;
@@ -41,12 +42,23 @@ export type ExpenseListFilters = ExpenseFilters;
 
 const baseExpenseSelect =
   "id, organization_id, shipment_id, category, amount, paid_by, client_billable, driver_reimbursable, approved, included_in_invoice, expense_date, notes, created_at, updated_at, deleted_at, shipments(shipment_no, invoice_reference, clients(name), drivers(name))";
-const expenseSelect =
+const clientBillExpenseSelect =
   "id, organization_id, shipment_id, shipment_assignment_id, category, amount, client_bill_amount, paid_by, client_billable, driver_reimbursable, approved, included_in_invoice, expense_date, notes, created_at, updated_at, deleted_at, shipments(shipment_no, invoice_reference, clients(name), drivers(name))";
+const expenseSelect = clientBillExpenseSelect.replace("client_bill_amount,", "client_bill_amount, driver_pay_amount,");
 
-function isMissingClientBillAmountError(error: { message?: string; details?: string; hint?: string } | null) {
+// Selects/payloads from newest to oldest schema, so the app keeps working until the latest migrations are applied.
+// Tier 0 needs driver_pay_amount (migration 019), tier 1 needs client_bill_amount (005), tier 2 is the original schema.
+// A missing driver_pay_amount means legacy behaviour: the driver is reimbursed the actual cost.
+const EXPENSE_TIERS = [
+  { select: expenseSelect, clientBill: true, driverPay: true },
+  { select: clientBillExpenseSelect, clientBill: true, driverPay: false },
+  { select: baseExpenseSelect, clientBill: false, driverPay: false },
+] as const;
+
+// True when the error says a column of a newer tier is missing (so the next, older tier should be tried).
+function isMissingExpenseColumnError(error: { message?: string; details?: string; hint?: string } | null) {
   const text = [error?.message, error?.details, error?.hint].filter(Boolean).join(" ").toLowerCase();
-  return text.includes("client_bill_amount");
+  return text.includes("client_bill_amount") || text.includes("driver_pay_amount");
 }
 
 function firstRelation<T>(relation: T | T[] | null | undefined): T | null {
@@ -78,6 +90,7 @@ function toExpense(row: ExpenseRow): ShipmentExpense {
     amount: actualCostAmount,
     actualCostAmount,
     clientBillAmount,
+    driverPayAmount: row.driver_pay_amount === null || row.driver_pay_amount === undefined ? null : Number(row.driver_pay_amount),
     paidBy: row.paid_by,
     clientBillable: row.client_billable,
     driverReimbursable: row.driver_reimbursable,
@@ -91,7 +104,10 @@ function toExpense(row: ExpenseRow): ShipmentExpense {
   };
 }
 
-function toExpensePayload(input: ShipmentExpenseInput | ShipmentExpenseUpdateInput, includeClientBillAmount = true) {
+function toExpensePayload(
+  input: ShipmentExpenseInput | ShipmentExpenseUpdateInput,
+  { clientBill: includeClientBillAmount, driverPay: includeDriverPayAmount }: { clientBill: boolean; driverPay: boolean } = EXPENSE_TIERS[0],
+) {
   const actualCostAmount = input.actualCostAmount ?? input.amount;
   return {
     ...(input.shipmentId !== undefined ? { shipment_id: input.shipmentId } : {}),
@@ -99,6 +115,7 @@ function toExpensePayload(input: ShipmentExpenseInput | ShipmentExpenseUpdateInp
     ...(input.category !== undefined ? { category: input.category } : {}),
     ...(actualCostAmount !== undefined ? { amount: actualCostAmount } : {}),
     ...(includeClientBillAmount && input.clientBillAmount !== undefined ? { client_bill_amount: input.clientBillAmount } : {}),
+    ...(includeDriverPayAmount && input.driverPayAmount !== undefined ? { driver_pay_amount: input.driverPayAmount } : {}),
     ...(input.paidBy !== undefined ? { paid_by: input.paidBy } : {}),
     ...(input.clientBillable !== undefined ? { client_billable: input.clientBillable } : {}),
     ...(input.driverReimbursable !== undefined ? { driver_reimbursable: input.driverReimbursable } : {}),
@@ -136,9 +153,10 @@ export async function listExpenses(organizationId: string, filters: ExpenseListF
     return query;
   };
 
-  let { data, error } = await buildQuery(expenseSelect);
-  if (error && isMissingClientBillAmountError(error)) {
-    ({ data, error } = await buildQuery(baseExpenseSelect));
+  let { data, error } = await buildQuery(EXPENSE_TIERS[0].select);
+  for (const tier of EXPENSE_TIERS.slice(1)) {
+    if (!error || !isMissingExpenseColumnError(error)) break;
+    ({ data, error } = await buildQuery(tier.select));
   }
   if (error) throw new Error(`Unable to load expenses: ${error.message}`);
   return ((data ?? []) as unknown as ExpenseRow[]).map(toExpense);
@@ -163,66 +181,51 @@ export async function createExpense(organizationId: string, input: ShipmentExpen
     clientBillAmount: input.clientBillAmount ?? input.amount,
   };
 
-  let { data, error } = await supabase
+  const insertWith = (tier: (typeof EXPENSE_TIERS)[number]) => supabase
     .from("shipment_expenses")
     .insert({
-      ...toExpensePayload(defaultedInput),
+      ...toExpensePayload(defaultedInput, tier),
       organization_id: organizationId,
       created_by: userId,
       updated_by: userId,
     })
-    .select(expenseSelect)
+    .select(tier.select)
     .single();
 
-  if (error && isMissingClientBillAmountError(error)) {
-    ({ data, error } = await supabase
-      .from("shipment_expenses")
-      .insert({
-        ...toExpensePayload(defaultedInput, false),
-        organization_id: organizationId,
-        created_by: userId,
-        updated_by: userId,
-      })
-      .select(baseExpenseSelect)
-      .single());
+  let { data, error } = await insertWith(EXPENSE_TIERS[0]);
+  for (const tier of EXPENSE_TIERS.slice(1)) {
+    if (!error || !isMissingExpenseColumnError(error)) break;
+    ({ data, error } = await insertWith(tier));
   }
 
   if (error) throw new Error(`Unable to create expense: ${error.message}`);
-  return toExpense(data as ExpenseRow);
+  return toExpense(data as unknown as ExpenseRow);
 }
 
 export async function updateExpense(organizationId: string, expenseId: string, input: ShipmentExpenseUpdateInput): Promise<ShipmentExpense> {
   const supabase = requireSupabaseClient();
   const userId = await getCurrentUserId();
 
-  let { data, error } = await supabase
+  const updateWith = (tier: (typeof EXPENSE_TIERS)[number]) => supabase
     .from("shipment_expenses")
     .update({
-      ...toExpensePayload(input),
+      ...toExpensePayload(input, tier),
       updated_by: userId,
     })
     .eq("id", expenseId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
-    .select(expenseSelect)
+    .select(tier.select)
     .single();
 
-  if (error && isMissingClientBillAmountError(error)) {
-    ({ data, error } = await supabase
-      .from("shipment_expenses")
-      .update({
-        ...toExpensePayload(input, false),
-        updated_by: userId,
-      })
-      .eq("id", expenseId)
-      .eq("organization_id", organizationId)
-      .is("deleted_at", null)
-      .select(baseExpenseSelect)
-      .single());
+  let { data, error } = await updateWith(EXPENSE_TIERS[0]);
+  for (const tier of EXPENSE_TIERS.slice(1)) {
+    if (!error || !isMissingExpenseColumnError(error)) break;
+    ({ data, error } = await updateWith(tier));
   }
 
   if (error) throw new Error(`Unable to update expense: ${error.message}`);
-  return toExpense(data as ExpenseRow);
+  return toExpense(data as unknown as ExpenseRow);
 }
 
 export async function softDeleteExpense(organizationId: string, expenseId: string): Promise<void> {

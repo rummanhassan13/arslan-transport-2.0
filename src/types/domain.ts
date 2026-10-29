@@ -248,6 +248,8 @@ export type ShipmentExpense = {
   category: ExpenseCategory;
   actualCostAmount?: number;
   clientBillAmount?: number;
+  /** Amount added to the driver's total (null = legacy: the actual cost when driver-reimbursable). */
+  driverPayAmount?: number | null;
   amount: number;
   paidBy: ExpensePaidBy;
   clientBillable: boolean;
@@ -267,6 +269,7 @@ export type ShipmentExpenseInput = {
   category: ExpenseCategory;
   actualCostAmount?: number;
   clientBillAmount?: number;
+  driverPayAmount?: number | null;
   amount: number;
   paidBy?: ExpensePaidBy;
   clientBillable?: boolean;

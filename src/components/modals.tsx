@@ -1066,6 +1066,7 @@ export function PaymentModal({
   initialShipmentId,
   initialDriverId,
   initialInvoiceId,
+  initialPaymentType,
   onClose,
   onSave,
 }: {
@@ -1076,6 +1077,7 @@ export function PaymentModal({
   initialShipmentId?: string;
   initialDriverId?: string;
   initialInvoiceId?: string;
+  initialPaymentType?: DriverPaymentInput["paymentType"];
   onClose: () => void;
   onSave: (input: PaymentModalInput) => Promise<void> | void;
 }) {
@@ -1124,7 +1126,7 @@ export function PaymentModal({
   const [shipmentId, setShipmentId] = useState(initialShipmentId || "");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [paymentType, setPaymentType] = useState<DriverPaymentInput["paymentType"]>("settlement");
+  const [paymentType, setPaymentType] = useState<DriverPaymentInput["paymentType"]>(initialPaymentType ?? "settlement");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");

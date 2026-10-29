@@ -6,10 +6,9 @@ import { useAuth } from "../hooks/useAuth";
 import { filterShipments, sum } from "../utils/calculations";
 import { formatDate, money } from "../utils/formatters";
 import { EmptyState, KpiGrid, PageTitle, SkeletonTable, StatusBadge } from "../components/ui";
+import { SETTABLE_INVOICE_STATUSES, invoiceStatusLabel } from "../utils/statusDerivation";
 import { canManageInvoices, canManagePayments, canManageShipments } from "../utils/permissions";
 
-// Display statuses a user can set by hand; Paid/Overdue are derived from payments.
-const INVOICE_STATUS_OPTIONS: InvoiceStatus[] = ["Draft", "Sent", "Cancelled"];
 
 export function ShipmentsPage({
   shipments,
@@ -251,7 +250,7 @@ function ShipmentTable({
                 <strong>{row.invoice}</strong>
                 <span><CalendarDays size={12} /> {formatDate(row.date)}</span>
               </div>
-              <StatusBadge status={row.invoiceStatus} label={row.invoiceStatus} />
+              <StatusBadge status={row.invoiceStatus} label={invoiceStatusLabel(row.invoiceStatus)} />
             </div>
             <div className="shipment-mobile-card-client">{row.customer}</div>
             <div className="shipment-mobile-card-route">
@@ -340,10 +339,10 @@ function ShipmentTable({
                         title="Change invoice status"
                         aria-label={`Invoice status for ${row.invoice}`}
                       >
-                        {INVOICE_STATUS_OPTIONS.map((status) => <option key={status} value={status}>Invoice · {status}</option>)}
+                        {(SETTABLE_INVOICE_STATUSES.includes(row.invoiceStatus) ? SETTABLE_INVOICE_STATUSES : [row.invoiceStatus, ...SETTABLE_INVOICE_STATUSES]).map((status) => <option key={status} value={status}>Invoice · {invoiceStatusLabel(status)}</option>)}
                       </select>
                     ) : (
-                      <StatusBadge status={row.invoiceStatus} label={`Invoice · ${row.invoiceStatus}`} />
+                      <StatusBadge status={row.invoiceStatus} label={`Invoice · ${invoiceStatusLabel(row.invoiceStatus)}`} />
                     )}
                     <StatusBadge status={row.clientPaymentStatus} label={`Company · ${row.clientPaymentStatus}`} />
                     <StatusBadge status={row.driverPaymentStatus} label={`Driver · ${row.driverPaymentStatus}`} />

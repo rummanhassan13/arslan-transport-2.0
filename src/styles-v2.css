@@ -1033,6 +1033,11 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   white-space: nowrap;
 }
 
+.table-scroll th.num,
+.table-scroll th.text-right {
+  text-align: right;
+}
+
 .table-scroll td {
   min-height: 58px;
   border-bottom: 1px solid var(--line-soft);

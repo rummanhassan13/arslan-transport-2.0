@@ -31,6 +31,8 @@ import type { DriverPaymentInput, Invoice, ClientPaymentInput, Shipment, Shipmen
 import type { RouteLocationType } from "./services/routeLocationService";
 import { buildStats, calculateShipmentFinancials } from "./utils/calculations";
 import { deriveDisplayInvoiceStatus, deriveClientPaymentStatus } from "./utils/statusDerivation";
+import { planDriverSettlement } from "./utils/paymentStatusActions";
+import { money } from "./utils/formatters";
 import {
   calculateInvoiceBalance,
   calculateShipmentProjection,
@@ -265,7 +267,7 @@ function DemoApp() {
   }, [allExpenses, baseShipments, invoices, clientPayments, driverPayments]);
   const [query, setQuery] = useState(initialUiState?.query ?? "");
   const [shipmentDialog, setShipmentDialog] = useState(initialUiState?.shipmentDialog ?? false);
-  const [paymentDialog, setPaymentDialog] = useState<{ type?: "Client" | "Driver", shipmentId?: string, driverId?: string, invoiceId?: string } | null>(initialUiState?.paymentDialog ?? null);
+  const [paymentDialog, setPaymentDialog] = useState<{ type?: "Client" | "Driver", shipmentId?: string, driverId?: string, invoiceId?: string, paymentType?: DriverPaymentInput["paymentType"] } | null>(initialUiState?.paymentDialog ?? null);
   const [invoicePreview, setInvoicePreview] = useState<{ shipment: Shipment; invoice?: Invoice } | null>(null);
   const [shipmentPrintBundle, setShipmentPrintBundle] = useState<{
     shipment: Shipment;
@@ -578,6 +580,61 @@ function DemoApp() {
     }
   };
 
+  // Status dropdowns in the shipment details panel: "Paid" records the outstanding amount as a real payment
+  // (after a confirmation), so the derived Company/Driver payment status follows from the ledger.
+  const handleMarkCompanyPaid = async (shipment: Shipment) => {
+    const invoice = invoices.find((item) => item.shipmentId === shipment.id);
+    if (!invoice) {
+      setToast("Generate the invoice before recording a company payment.");
+      return;
+    }
+    const outstanding = shipment.clientBalance ?? 0;
+    if (outstanding <= 0) {
+      setToast("Nothing is outstanding for this company.");
+      return;
+    }
+    if (!window.confirm(`Record ${money(outstanding)} company payment as paid?`)) return;
+    try {
+      await createClientPayment({
+        invoiceId: invoice.id,
+        clientId: invoice.clientId ?? shipment.clientId ?? "",
+        shipmentId: shipment.id,
+        amount: outstanding,
+        paymentDate: new Date().toISOString().slice(0, 10),
+        notes: "Marked paid from shipment details",
+        idempotencyKey: `mark-paid-client-${invoice.id}-${Date.now()}`,
+      });
+      setToast("Company payment recorded.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Unable to record company payment.");
+    }
+  };
+
+  const handleMarkDriverPaid = async (shipment: Shipment) => {
+    const plan = planDriverSettlement(shipment);
+    if (!plan.items.length) {
+      setToast("Nothing is outstanding for the driver.");
+      return;
+    }
+    if (!window.confirm(`Record ${money(plan.total)} driver payment as paid?`)) return;
+    try {
+      for (const item of plan.items) {
+        await createDriverPayment({
+          driverId: item.driverId,
+          shipmentId: shipment.id,
+          shipmentAssignmentId: item.shipmentAssignmentId,
+          amount: item.amount,
+          paymentType: "settlement",
+          paymentDate: new Date().toISOString().slice(0, 10),
+          notes: "Marked paid from shipment details",
+          idempotencyKey: `mark-paid-driver-${shipment.id}-${item.shipmentAssignmentId ?? item.driverId}-${Date.now()}`,
+        });
+      }
+      setToast("Driver payment recorded.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Unable to record driver payment.");
+    }
+  };
   const handleUpdateShipmentStatus = async (shipmentId: string, status: NonNullable<Shipment["status"]>) => {
     try {
       const reason = status === "cancelled" ? window.prompt("Cancellation reason")?.trim() : undefined;
@@ -699,6 +756,8 @@ function DemoApp() {
           hasInvoice={invoices.some((invoice) => invoice.shipmentId === summaryShipment.id)}
           onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
           onUpdateShipmentStatus={handleUpdateShipmentStatus}
+          onMarkCompanyPaid={handleMarkCompanyPaid}
+          onMarkDriverPaid={handleMarkDriverPaid}
         />
       )}
       {paymentDialog && (
@@ -710,6 +769,7 @@ function DemoApp() {
           initialShipmentId={paymentDialog.shipmentId}
           initialDriverId={paymentDialog.driverId}
           initialInvoiceId={paymentDialog.invoiceId}
+          initialPaymentType={paymentDialog.paymentType}
           onClose={() => setPaymentDialog(null)}
           onSave={savePayment}
         />
