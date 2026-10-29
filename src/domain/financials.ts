@@ -90,6 +90,11 @@ export function getExpenseClientBillAmount(expense: ShipmentExpense): number {
   return roundMoney(expense.clientBillAmount ?? expense.amount ?? 0);
 }
 
+/** Amount added to the driver's total for a driver-reimbursable expense; legacy rows fall back to the actual cost. */
+export function getExpenseDriverPayAmount(expense: ShipmentExpense): number {
+  return roundMoney(expense.driverPayAmount ?? getExpenseActualCost(expense));
+}
+
 /** Amount shown for an expense in shipment views: what the company is billed, or the actual cost when not billed. */
 export function getExpenseDisplayAmount(expense: ShipmentExpense): number {
   return expense.clientBillable ? getExpenseClientBillAmount(expense) : getExpenseActualCost(expense);
@@ -175,12 +180,13 @@ export function calculateShipmentProjection(
   );
   const baseDriverPayable = sumMoney(assignments.map((assignment) => assignment.driverRate));
   const driverReimbursementsPayable = sumMoney(
-    approved.filter((expense) => expense.driverReimbursable).map(getExpenseActualCost),
+    approved.filter((expense) => expense.driverReimbursable).map(getExpenseDriverPayAmount),
   );
+  // Cost to the company: what it pays the driver for reimbursable expenses, otherwise the actual cost of expenses it paid itself.
   const companyOperationalCost = sumMoney(
     approved
       .filter((expense) => expense.paidBy === "company" || expense.driverReimbursable)
-      .map(getExpenseActualCost),
+      .map((expense) => (expense.driverReimbursable ? getExpenseDriverPayAmount(expense) : getExpenseActualCost(expense))),
   );
   const companyPaidCost = sumMoney(
     approved.filter((expense) => expense.paidBy === "company").map(getExpenseActualCost),
@@ -202,7 +208,7 @@ export function calculateShipmentProjection(
     });
     const relevantPayments = paymentsForAssignment(activeDriverPayments, assignment, assignments.length);
     const basePayable = roundMoney(assignment.driverRate);
-    const reimbursableExpenses = sumMoney(reimbursable.map(getExpenseActualCost));
+    const reimbursableExpenses = sumMoney(reimbursable.map(getExpenseDriverPayAmount));
     const payable = sumMoney([basePayable, reimbursableExpenses]);
     const totalPaid = sumMoney(relevantPayments.map(signedDriverPaymentAmount));
     const advancePaid = sumMoney(

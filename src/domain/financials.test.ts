@@ -4,6 +4,7 @@ import {
   calculateInvoiceBalance,
   calculateShipmentProjection,
   getExpenseDisplayAmount,
+  getExpenseDriverPayAmount,
   moneyToMinor,
   roundMoney,
   signedClientPaymentAmount,
@@ -222,6 +223,47 @@ describe("shipment golden scenarios", () => {
     expect(result.totalCost).toBe(base.totalCost + 100);
     expect(result.estimatedProfit).toBe(base.estimatedProfit + 50);
     expect(result.driverBalance).toBe(base.driverBalance + 100);
+  });
+
+  it("adds the Pay driver amount, not the actual cost, to the driver's total only", () => {
+    const base = calculateShipmentProjection(shipment());
+    const result = calculateShipmentProjection(shipment(), [expense({
+      shipmentAssignmentId: "assignment-1",
+      paidBy: "driver",
+      driverReimbursable: true,
+      clientBillable: true,
+      includedInInvoice: true,
+      actualCostAmount: 100,
+      clientBillAmount: 150,
+      driverPayAmount: 80,
+    })]);
+    expect(getExpenseDriverPayAmount(expense({ driverPayAmount: 80 }))).toBe(80);
+    expect(result.driverReimbursementsPayable).toBe(80);
+    expect(result.assignmentSettlements[0].payable).toBe(base.baseDriverPayable + 80);
+    expect(result.driverBalance).toBe(base.driverBalance + 80);
+    // Company total only reflects the company bill amount.
+    expect(result.estimatedClientRevenue).toBe(base.estimatedClientRevenue + 150);
+    // What the company pays the driver is its cost.
+    expect(result.totalCost).toBe(base.totalCost + 80);
+    expect(result.estimatedProfit).toBe(base.estimatedProfit + 70);
+  });
+
+  it("falls back to the actual cost when a reimbursable expense has no Pay driver amount", () => {
+    const result = calculateShipmentProjection(shipment(), [expense({
+      shipmentAssignmentId: "assignment-1",
+      paidBy: "driver",
+      driverReimbursable: true,
+      driverPayAmount: null,
+    })]);
+    expect(result.driverReimbursementsPayable).toBe(100);
+    expect(result.driverBalance).toBe(700);
+  });
+
+  it("ignores a Pay driver amount on an expense that is not driver-reimbursable", () => {
+    const base = calculateShipmentProjection(shipment());
+    const result = calculateShipmentProjection(shipment(), [expense({ driverReimbursable: false, driverPayAmount: 80 })]);
+    expect(result.driverReimbursementsPayable).toBe(0);
+    expect(result.driverBalance).toBe(base.driverBalance);
   });
 
   it("does not authorize unapproved expenses", () => {

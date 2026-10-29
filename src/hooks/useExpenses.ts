@@ -142,6 +142,7 @@ export function useExpenses(shipments: Shipment[] = []) {
           amount: actualCostAmount,
           actualCostAmount,
           clientBillAmount,
+          driverPayAmount: input.driverPayAmount ?? null,
           paidBy: input.paidBy ?? "company",
           clientBillable: input.clientBillable ?? true,
           driverReimbursable: input.driverReimbursable ?? false,

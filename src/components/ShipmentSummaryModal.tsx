@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
 import { MoveRight, Plus, Printer, Trash2 } from "lucide-react";
 import { Modal, StatusBadge } from "./ui";
-import type { Shipment, ShipmentExpense, ShipmentExpenseInput, ShipmentAttachment, ClientPayment, DriverPayment } from "../types/domain";
+import type { Shipment, ShipmentExpense, ShipmentExpenseInput, ShipmentAttachment, ClientPayment, DriverPayment, DriverPaymentInput, InvoiceStatus, PaymentStatus } from "../types/domain";
+import { SETTABLE_INVOICE_STATUSES, invoiceStatusLabel } from "../utils/statusDerivation";
+import { COMPANY_PAYMENT_STATUS_OPTIONS, DRIVER_PAYMENT_STATUS_OPTIONS, PAYMENT_STATUS_LOCKED_HINT, canMovePaymentStatus } from "../utils/paymentStatusActions";
 import { money, formatDate, labelize } from "../utils/formatters";
 import { calculateShipmentFinancials, getExpenseDisplayAmount } from "../utils/calculations";
 import { ExpenseDialog } from "../pages/ExpensesPage";
@@ -28,7 +30,8 @@ export function ShipmentSummaryModal({
   printShipmentDocuments,
   hasInvoice,
   onUpdateInvoiceStatus,
-  onUpdateShipmentStatus,
+  onMarkCompanyPaid,
+  onMarkDriverPaid,
   deleteClientPayment,
   deleteDriverPayment,
 }: {
@@ -44,12 +47,13 @@ export function ShipmentSummaryModal({
   deleteExpense: (expenseId: string) => Promise<void>;
   deleteClientPayment: (paymentId: string) => Promise<void>;
   deleteDriverPayment: (paymentId: string) => Promise<void>;
-  setPaymentDialog: (state: { type?: "Client" | "Driver", shipmentId?: string, driverId?: string, invoiceId?: string } | null) => void;
+  setPaymentDialog: (state: { type?: "Client" | "Driver", shipmentId?: string, driverId?: string, invoiceId?: string, paymentType?: DriverPaymentInput["paymentType"] } | null) => void;
   previewInvoice?: (shipment: Shipment) => void;
   printShipmentDocuments?: (shipment: Shipment, attachments: ShipmentAttachment[]) => void;
   hasInvoice?: boolean;
   onUpdateInvoiceStatus?: (shipmentId: string, status: import("../types/domain").InvoiceStatus) => void;
-  onUpdateShipmentStatus?: (shipmentId: string, status: NonNullable<Shipment["status"]>) => void;
+  onMarkCompanyPaid?: (shipment: Shipment) => void;
+  onMarkDriverPaid?: (shipment: Shipment) => void;
 }) {
   const { role } = useAuth();
   const [expenseDialog, setExpenseDialog] = useState<ShipmentExpense | null | "new">(null);
@@ -60,14 +64,27 @@ export function ShipmentSummaryModal({
   const canManageAttachmentRows = env.demoMode || canManageAttachments(role);
   const canManageFinance = env.demoMode || (canManageInvoices(role) && canManagePayments(role));
   const canManageOperations = env.demoMode || canManageShipments(role);
-  const operationalTransitions: Record<NonNullable<Shipment["status"]>, NonNullable<Shipment["status"]>[]> = {
-    pending: ["in_transit", "cancelled"],
-    in_transit: ["delivered", "cancelled"],
-    delivered: ["completed", "cancelled"],
-    completed: [],
-    cancelled: [],
+  const driverPaymentStatus: PaymentStatus = shipment.driverPaymentStatus || "Pending";
+  const companyPaymentStatus: PaymentStatus = shipment.clientPaymentStatus || "Pending";
+  const withCurrent = (options: PaymentStatus[], current: PaymentStatus) => (options.includes(current) ? options : [current, ...options]);
+  // Choosing a status only moves forward by recording a payment: Paid records the outstanding amount (confirmed first),
+  // Advance Paid opens the Pay Driver form as an advance. Going back is blocked; payments are deleted from the list.
+  const changeDriverPaymentStatus = (target: PaymentStatus) => {
+    if (target === "Paid") onMarkDriverPaid?.(shipment);
+    if (target === "Advance Paid") {
+      setPaymentDialog({
+        type: "Driver",
+        shipmentId: shipment.id,
+        paymentType: "advance",
+        ...(shipment.assignments?.length === 1 && shipment.assignments[0].driverId ? { driverId: shipment.assignments[0].driverId } : {}),
+      });
+    }
   };
-  const nextOperationalStatuses = operationalTransitions[shipment.status ?? "pending"];
+  const invoiceStatus: InvoiceStatus = shipment.invoiceStatus || "Draft";
+  // Pending / Sent; a status outside those (e.g. Cancelled) stays visible as the current value.
+  const invoiceStatusOptions = SETTABLE_INVOICE_STATUSES.includes(invoiceStatus)
+    ? SETTABLE_INVOICE_STATUSES
+    : [invoiceStatus, ...SETTABLE_INVOICE_STATUSES];
 
   // Filter expenses for this shipment
   const shipmentExpenses = useMemo(() => {
@@ -214,40 +231,6 @@ export function ShipmentSummaryModal({
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Truck Type</span>
                       <span className="text-sm font-semibold">{shipment.truckType || "N/A"}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Shipment Status</span>
-                      {onUpdateShipmentStatus && canManageOperations && nextOperationalStatuses.length > 0 ? (
-                        <select
-                          className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
-                          value={shipment.status ?? "pending"}
-                          onChange={(event) => onUpdateShipmentStatus(shipment.id, event.target.value as NonNullable<Shipment["status"]>)}
-                        >
-                          <option value={shipment.status ?? "pending"}>{labelize(shipment.status ?? "pending")}</option>
-                          {nextOperationalStatuses.map((status) => <option key={status} value={status}>{labelize(status)}</option>)}
-                        </select>
-                      ) : (
-                        <StatusBadge status={labelize(shipment.status ?? "pending")} />
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Invoice Status</span>
-                      {onUpdateInvoiceStatus && canManageFinance ? (
-                        <select
-                          className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
-                          value={shipment.invoiceStatus || "Draft"}
-                          onChange={(e) => onUpdateInvoiceStatus(shipment.id, e.target.value as any)}
-                        >
-                          <option value="Draft">Draft</option>
-                          <option value="Sent">Sent</option>
-                          <option value="Cancelled">Cancelled</option>
-                        </select>
-                      ) : (
-                        <StatusBadge status={shipment.invoiceStatus || "Draft"} />
-                      )}
                     </div>
                   </div>
                 </div>
@@ -438,6 +421,58 @@ export function ShipmentSummaryModal({
                       {money(financials.estimatedProfit)}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Status row: driver payment and company payment are derived from recorded payments; only invoice status is set by hand */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border border-[var(--line)] rounded-[var(--radius)] p-4">
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Driver Payment</span>
+                  {canManageFinance && onMarkDriverPaid ? (
+                    <select
+                      className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
+                      value={driverPaymentStatus}
+                      title={PAYMENT_STATUS_LOCKED_HINT}
+                      onChange={(event) => changeDriverPaymentStatus(event.target.value as PaymentStatus)}
+                    >
+                      {withCurrent(DRIVER_PAYMENT_STATUS_OPTIONS, driverPaymentStatus).map((status) => (
+                        <option key={status} value={status} disabled={!canMovePaymentStatus("driver", driverPaymentStatus, status)}>{status}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div><StatusBadge status={driverPaymentStatus} /></div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Invoice Status</span>
+                  {onUpdateInvoiceStatus && canManageFinance ? (
+                    <select
+                      className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
+                      value={invoiceStatus}
+                      onChange={(event) => onUpdateInvoiceStatus(shipment.id, event.target.value as InvoiceStatus)}
+                    >
+                      {invoiceStatusOptions.map((status) => <option key={status} value={status}>{invoiceStatusLabel(status)}</option>)}
+                    </select>
+                  ) : (
+                    <div><StatusBadge status={invoiceStatus} label={invoiceStatusLabel(invoiceStatus)} /></div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Company Payment</span>
+                  {canManageFinance && onMarkCompanyPaid ? (
+                    <select
+                      className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
+                      value={companyPaymentStatus}
+                      title={PAYMENT_STATUS_LOCKED_HINT}
+                      onChange={(event) => { if (event.target.value === "Paid") onMarkCompanyPaid(shipment); }}
+                    >
+                      {withCurrent(COMPANY_PAYMENT_STATUS_OPTIONS, companyPaymentStatus).map((status) => (
+                        <option key={status} value={status} disabled={!canMovePaymentStatus("company", companyPaymentStatus, status)}>{status}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div><StatusBadge status={companyPaymentStatus} /></div>
+                  )}
                 </div>
               </div>
 

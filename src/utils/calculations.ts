@@ -4,12 +4,13 @@ import {
   calculateShipmentProjection,
   getExpenseActualCost,
   getExpenseClientBillAmount,
+  getExpenseDriverPayAmount,
   getExpenseMarkupProfit,
   roundMoney,
   sumMoney,
 } from "../domain/financials";
 
-export { getExpenseActualCost, getExpenseClientBillAmount, getExpenseDisplayAmount, getExpenseMarkupProfit } from "../domain/financials";
+export { getExpenseActualCost, getExpenseClientBillAmount, getExpenseDisplayAmount, getExpenseDriverPayAmount, getExpenseMarkupProfit } from "../domain/financials";
 
 export type DashboardPeriod = "7D" | "30D" | "QTD" | "YTD";
 
@@ -176,7 +177,7 @@ export function getClientBillableExpensesTotal(expenses: ShipmentExpense[]) {
 export function getDriverReimbursableExpensesTotal(expenses: ShipmentExpense[]) {
   return expenses
     .filter((expense) => expense.approved && expense.driverReimbursable)
-    .map(getExpenseActualCost)
+    .map(getExpenseDriverPayAmount)
     .reduce((total, value) => roundMoney(total + value), 0);
 }
 
