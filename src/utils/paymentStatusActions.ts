@@ -42,3 +42,19 @@ export function planDriverSettlement(shipment: Shipment): { items: DriverSettlem
       : [];
   return { items, total: sumMoney(items.map((item) => item.amount)) };
 }
+
+/**
+ * Shipment statuses to step through when the company has paid in full. The server only allows
+ * pending -> in_transit -> delivered -> completed (+ cancel), so a pending shipment goes via in_transit.
+ * Delivered, completed and cancelled shipments are left as they are.
+ */
+export function planDeliveryTransitions(status: Shipment["status"] | undefined): NonNullable<Shipment["status"]>[] {
+  const current = status ?? "pending";
+  if (current === "pending") return ["in_transit", "delivered"];
+  if (current === "in_transit") return ["delivered"];
+  return [];
+}
+/** A pending shipment with a driver assigned goes in transit; cancelled, delivered and completed shipments are never touched. */
+export function planInTransitTransition(status: Shipment["status"] | undefined, hasDriver: boolean): "in_transit" | null {
+  return (status ?? "pending") === "pending" && hasDriver ? "in_transit" : null;
+}

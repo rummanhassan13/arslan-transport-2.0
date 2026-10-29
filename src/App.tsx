@@ -31,7 +31,7 @@ import type { DriverPaymentInput, Invoice, ClientPaymentInput, Shipment, Shipmen
 import type { RouteLocationType } from "./services/routeLocationService";
 import { buildStats, calculateShipmentFinancials } from "./utils/calculations";
 import { deriveDisplayInvoiceStatus, deriveClientPaymentStatus } from "./utils/statusDerivation";
-import { planDriverSettlement } from "./utils/paymentStatusActions";
+import { planDeliveryTransitions, planDriverSettlement, planInTransitTransition } from "./utils/paymentStatusActions";
 import { money } from "./utils/formatters";
 import {
   calculateInvoiceBalance,
@@ -39,6 +39,11 @@ import {
   signedDriverPaymentAmount,
   sumMoney,
 } from "./domain/financials";
+
+// True when the saved shipment has at least one driver assigned (on a leg or on the shipment itself).
+function hasAssignedDriver(input: { driverId?: string | null; assignments?: Array<{ driverId: string | null }> }) {
+  return Boolean(input.assignments?.some((assignment) => assignment.driverId) || input.driverId);
+}
 
 const ACTIVE_VIEW_STORAGE_KEY = "transportflow.activeView";
 const UI_STATE_STORAGE_KEY = "transportflow.ui";
@@ -380,11 +385,14 @@ function DemoApp() {
       };
 
       if (editShipmentId) {
+        const editedShipment = displayShipments.find((item) => item.id === editShipmentId);
         await updateShipment(editShipmentId, preparedInput);
+        const statusNote = await startTransitIfAssigned(editShipmentId, editedShipment?.status, hasAssignedDriver(preparedInput));
         setEditShipmentId(null);
-        setToast("Shipment updated.");
+        setToast(`Shipment updated.${statusNote}`);
       } else {
         const createdShipment = await createShipment(preparedInput);
+        const statusNote = await startTransitIfAssigned(createdShipment.id, createdShipment.status, hasAssignedDriver(preparedInput));
         let generatedInvoice: Invoice;
         try {
           generatedInvoice = await createInvoiceForShipment(createdShipment);
@@ -398,7 +406,7 @@ function DemoApp() {
           }
           await refreshInvoices().catch(() => undefined);
           setShipmentDialog(false);
-          setToast("Shipment and invoice were committed, but the invoice list could not be refreshed. Reload the app to synchronize it.");
+          setToast(`Shipment and invoice were committed, but the invoice list could not be refreshed. Reload the app to synchronize it.${statusNote}`);
           return;
         }
         if (env.demoMode) {
@@ -423,7 +431,7 @@ function DemoApp() {
         // so the local ledger must be reloaded for the advance to show on the shipment.
         await refreshPayments().catch(() => undefined);
         setShipmentDialog(false);
-        setToast(`Shipment saved and invoice ${generatedInvoice.invoiceNumber} generated automatically.`);
+        setToast(`Shipment saved and invoice ${generatedInvoice.invoiceNumber} generated automatically.${statusNote}`);
       }
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Unable to save shipment.");
@@ -516,7 +524,12 @@ function DemoApp() {
 
   const savePayment = async (input: { type: "Client" | "Driver"; clientPayment?: ClientPaymentInput; driverPayment?: DriverPaymentInput }) => {
     try {
+      let paidInFull: Shipment | null = null;
       if (input.type === "Client" && input.clientPayment) {
+        const invoice = invoices.find((item) => item.id === input.clientPayment?.invoiceId);
+        const target = displayShipments.find((item) => item.id === (input.clientPayment?.shipmentId ?? invoice?.shipmentId));
+        // The balance here is from before this payment, so a payment covering it settles the invoice.
+        if (target && (target.clientBalance ?? 0) > 0 && input.clientPayment.amount >= (target.clientBalance ?? 0) - 0.005) paidInFull = target;
         await createClientPayment(input.clientPayment);
       }
       if (input.type === "Driver" && input.driverPayment) {
@@ -524,6 +537,7 @@ function DemoApp() {
       }
       setPaymentDialog(null);
       setToast("Payment saved.");
+      if (paidInFull) await deliverShipmentAfterPayment(paidInFull);
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Unable to save payment.");
     }
@@ -602,9 +616,10 @@ function DemoApp() {
         amount: outstanding,
         paymentDate: new Date().toISOString().slice(0, 10),
         notes: "Marked paid from shipment details",
-        idempotencyKey: `mark-paid-client-${invoice.id}-${Date.now()}`,
+        idempotencyKey: `mark-paid-client-${invoice.id}-${crypto.randomUUID()}`,
       });
       setToast("Company payment recorded.");
+      await deliverShipmentAfterPayment(shipment);
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Unable to record company payment.");
     }
@@ -627,7 +642,7 @@ function DemoApp() {
           paymentType: "settlement",
           paymentDate: new Date().toISOString().slice(0, 10),
           notes: "Marked paid from shipment details",
-          idempotencyKey: `mark-paid-driver-${shipment.id}-${item.shipmentAssignmentId ?? item.driverId}-${Date.now()}`,
+          idempotencyKey: `mark-paid-driver-${shipment.id}-${item.shipmentAssignmentId ?? item.driverId}-${crypto.randomUUID()}`,
         });
       }
       setToast("Driver payment recorded.");
@@ -635,17 +650,28 @@ function DemoApp() {
       setToast(error instanceof Error ? error.message : "Unable to record driver payment.");
     }
   };
-  const handleUpdateShipmentStatus = async (shipmentId: string, status: NonNullable<Shipment["status"]>) => {
+  // A pending shipment with a driver assigned goes in transit. A failed status step never fails the save; it returns a note.
+  const startTransitIfAssigned = async (shipmentId: string, status: Shipment["status"], hasDriver: boolean): Promise<string> => {
+    const next = planInTransitTransition(status, hasDriver);
+    if (!next) return "";
     try {
-      const reason = status === "cancelled" ? window.prompt("Cancellation reason")?.trim() : undefined;
-      if (status === "cancelled" && !reason) return;
-      await transitionShipmentStatus(shipmentId, status, reason);
-      setToast(`Shipment status changed to ${status.replace(/_/g, " ")}.`);
+      await transitionShipmentStatus(shipmentId, next);
+      return "";
     } catch (error) {
-      setToast(error instanceof Error ? error.message : "Unable to change shipment status.");
+      return ` The shipment status could not be set to in transit: ${error instanceof Error ? error.message : "unknown error"}`;
     }
   };
-
+  // Company paid in full -> the shipment is delivered. The server only allows pending -> in_transit -> delivered,
+  // so step through each stage. A failed status step must not undo the payment: it only shows a message.
+  const deliverShipmentAfterPayment = async (shipment: Shipment) => {
+    try {
+      for (const status of planDeliveryTransitions(shipment.status)) {
+        await transitionShipmentStatus(shipment.id, status);
+      }
+    } catch (error) {
+      setToast(`Payment recorded, but the shipment status could not be set to delivered: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  };
   return (
     <div className="app-root bg-grid-pattern">
       <AppShell
@@ -755,7 +781,6 @@ function DemoApp() {
           printShipmentDocuments={printShipmentDocuments}
           hasInvoice={invoices.some((invoice) => invoice.shipmentId === summaryShipment.id)}
           onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
-          onUpdateShipmentStatus={handleUpdateShipmentStatus}
           onMarkCompanyPaid={handleMarkCompanyPaid}
           onMarkDriverPaid={handleMarkDriverPaid}
         />

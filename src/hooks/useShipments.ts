@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { env } from "../config/env";
 import { defaultShipments } from "../data/mockData";
 import {
@@ -24,10 +24,15 @@ export function useShipments() {
     const saved = localStorage.getItem(storageKey);
     return saved ? JSON.parse(saved) : defaultShipments;
   });
+  const latestShipments = useRef(shipments);
   const [filters, setFilters] = useState<ShipmentListFilters>({});
   const [loading, setLoading] = useState(!env.demoMode);
   const [error, setError] = useState<string | null>(null);
   const organizationId = activeOrganization?.id ?? null;
+
+  useEffect(() => {
+    latestShipments.current = shipments;
+  }, [shipments]);
 
   useEffect(() => {
     if (!env.demoMode) return;
@@ -107,6 +112,7 @@ export function useShipments() {
           invoiceStatus: "Pending",
           clientPaymentStatus: "Pending",
         };
+        latestShipments.current = [newShipment, ...latestShipments.current];
         setShipments((current) => [newShipment, ...current].map((shipment, index) => ({ ...shipment, sr: index + 1 })));
         notifyGlobalRefresh("shipments");
         return newShipment;
@@ -188,29 +194,32 @@ export function useShipments() {
         in_transit: ["delivered", "cancelled"],
         delivered: ["completed", "cancelled"],
       };
-      const currentShipment = shipments.find((shipment) => shipment.id === id);
+      // Read the latest list so back-to-back transitions (pending -> in_transit -> delivered) see each other.
+      const currentShipment = latestShipments.current.find((shipment) => shipment.id === id);
       if (!currentShipment) throw new Error("Shipment not found.");
       const currentStatus = currentShipment.status ?? "pending";
       if (!(allowed[currentStatus] ?? []).includes(status)) {
         throw new Error(`Invalid shipment transition from ${currentStatus} to ${status}.`);
       }
       if (status === "cancelled" && !reason?.trim()) throw new Error("A cancellation reason is required.");
-      const updated: Shipment = {
-        ...currentShipment,
+      const applyStatus = (shipment: Shipment): Shipment => ({
+        ...shipment,
         status,
         remarks: status === "cancelled"
-          ? [currentShipment.remarks, `CANCELLED: ${reason?.trim()}`].filter(Boolean).join("\n")
-          : currentShipment.remarks,
+          ? [shipment.remarks, `CANCELLED: ${reason?.trim()}`].filter(Boolean).join("\n")
+          : shipment.remarks,
         updatedAt: new Date().toISOString(),
-      };
-      setShipments((current) => current.map((shipment) => shipment.id === id ? updated : shipment));
-      return updated;
+      });
+      // Only the status changes, applied to the live list so other edits made a moment ago are not overwritten.
+      latestShipments.current = latestShipments.current.map((shipment) => shipment.id === id ? applyStatus(shipment) : shipment);
+      setShipments((current) => current.map((shipment) => shipment.id === id ? applyStatus(shipment) : shipment));
+      return applyStatus(currentShipment);
     }
     if (!organizationId) throw new Error("No active organization is available for changing shipment status.");
     const updated = await transitionSupabaseShipmentStatus(organizationId, id, status, reason);
     setShipments((current) => current.map((shipment) => shipment.id === id ? updated : shipment));
     return updated;
-  }, [organizationId, shipments]);
+  }, [organizationId]);
 
   return {
     shipments,

@@ -30,7 +30,6 @@ export function ShipmentSummaryModal({
   printShipmentDocuments,
   hasInvoice,
   onUpdateInvoiceStatus,
-  onUpdateShipmentStatus,
   onMarkCompanyPaid,
   onMarkDriverPaid,
   deleteClientPayment,
@@ -53,7 +52,6 @@ export function ShipmentSummaryModal({
   printShipmentDocuments?: (shipment: Shipment, attachments: ShipmentAttachment[]) => void;
   hasInvoice?: boolean;
   onUpdateInvoiceStatus?: (shipmentId: string, status: import("../types/domain").InvoiceStatus) => void;
-  onUpdateShipmentStatus?: (shipmentId: string, status: NonNullable<Shipment["status"]>) => void;
   onMarkCompanyPaid?: (shipment: Shipment) => void;
   onMarkDriverPaid?: (shipment: Shipment) => void;
 }) {
@@ -66,14 +64,6 @@ export function ShipmentSummaryModal({
   const canManageAttachmentRows = env.demoMode || canManageAttachments(role);
   const canManageFinance = env.demoMode || (canManageInvoices(role) && canManagePayments(role));
   const canManageOperations = env.demoMode || canManageShipments(role);
-  const operationalTransitions: Record<NonNullable<Shipment["status"]>, NonNullable<Shipment["status"]>[]> = {
-    pending: ["in_transit", "cancelled"],
-    in_transit: ["delivered", "cancelled"],
-    delivered: ["completed", "cancelled"],
-    completed: [],
-    cancelled: [],
-  };
-  const nextOperationalStatuses = operationalTransitions[shipment.status ?? "pending"];
   const driverPaymentStatus: PaymentStatus = shipment.driverPaymentStatus || "Pending";
   const companyPaymentStatus: PaymentStatus = shipment.clientPaymentStatus || "Pending";
   const withCurrent = (options: PaymentStatus[], current: PaymentStatus) => (options.includes(current) ? options : [current, ...options]);
@@ -241,24 +231,6 @@ export function ShipmentSummaryModal({
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-[var(--ink-3)] uppercase font-semibold">Truck Type</span>
                       <span className="text-sm font-semibold">{shipment.truckType || "N/A"}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-[var(--ink-3)] uppercase font-semibold">Shipment Status</span>
-                      {onUpdateShipmentStatus && canManageOperations && nextOperationalStatuses.length > 0 ? (
-                        <select
-                          className="border border-[var(--line-soft)] rounded text-xs px-1 py-1 outline-none font-medium bg-[var(--surface)] text-[var(--ink)] w-full"
-                          value={shipment.status ?? "pending"}
-                          onChange={(event) => onUpdateShipmentStatus(shipment.id, event.target.value as NonNullable<Shipment["status"]>)}
-                        >
-                          <option value={shipment.status ?? "pending"}>{labelize(shipment.status ?? "pending")}</option>
-                          {nextOperationalStatuses.map((status) => <option key={status} value={status}>{labelize(status)}</option>)}
-                        </select>
-                      ) : (
-                        <StatusBadge status={labelize(shipment.status ?? "pending")} />
-                      )}
                     </div>
                   </div>
                 </div>
