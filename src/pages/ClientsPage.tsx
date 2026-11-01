@@ -331,7 +331,7 @@ function ClientDialog({
               <span>Company TRN</span>
               <input value={form.trn ?? ""} onChange={(event) => update("trn", event.target.value)} placeholder="Optional" />
             </label>
-            <label className="field form-wide" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <label className="field checkbox-field form-wide">
               <input
                 type="checkbox"
                 checked={Boolean(form.showIbanOnInvoice)}
