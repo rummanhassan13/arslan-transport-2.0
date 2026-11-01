@@ -489,6 +489,23 @@ html[data-sidebar-pinned="false"] .v2-topbar {
   box-shadow: var(--v2-shadow-md);
 }
 
+.v2-sidebar-account-wrap {
+  position: relative;
+}
+
+.v2-sidebar-account-wrap .v2-sidebar-account {
+  width: 100%;
+}
+
+.v2-popover-menu-up {
+  top: auto;
+  bottom: calc(100% + 10px);
+  left: 0;
+  right: auto;
+  width: 100%;
+  min-width: 220px;
+}
+
 .v2-popover-heading {
   display: flex;
   flex-direction: column;

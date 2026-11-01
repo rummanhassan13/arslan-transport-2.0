@@ -3,6 +3,7 @@ import {
   Building2,
   ChevronDown,
   FileSpreadsheet,
+  FileText,
   FolderKanban,
   LayoutDashboard,
   LogOut,
@@ -73,6 +74,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
   const { company } = useBusinessSettings();
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [sidebarAccountOpen, setSidebarAccountOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [settingsPanel, setSettingsPanel] = useState<ProfileItem | null>(null);
   const [sidebarPinned, setSidebarPinned] = useState(() => {
@@ -105,20 +107,22 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
   useEffect(() => {
     setMoreOpen(false);
     setAccountOpen(false);
+    setSidebarAccountOpen(false);
     setMobileSearchOpen(false);
   }, [view]);
 
   useEffect(() => {
-    if (!moreOpen && !accountOpen) return;
+    if (!moreOpen && !accountOpen && !sidebarAccountOpen) return;
     const closeMenus = (event: PointerEvent) => {
       const target = event.target;
       if (target instanceof Element && target.closest(".v2-menu-boundary")) return;
       setMoreOpen(false);
       setAccountOpen(false);
+      setSidebarAccountOpen(false);
     };
     document.addEventListener("pointerdown", closeMenus);
     return () => document.removeEventListener("pointerdown", closeMenus);
-  }, [accountOpen, moreOpen]);
+  }, [accountOpen, moreOpen, sidebarAccountOpen]);
 
   useEffect(() => {
     document.documentElement.dataset.sidebarPinned = String(sidebarPinned);
@@ -154,6 +158,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
     setView(nextView);
     setMoreOpen(false);
     setAccountOpen(false);
+    setSidebarAccountOpen(false);
     setMobileSearchOpen(false);
     setSidebarDrawerOpen(false);
   };
@@ -184,8 +189,45 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
   const openSettings = (panel: ProfileItem) => {
     setMoreOpen(false);
     setAccountOpen(false);
+    setSidebarAccountOpen(false);
     setSettingsPanel(panel);
   };
+
+  const renderAccountMenuBody = () => (
+    <>
+      <div className="v2-popover-heading">
+        <strong>{orgName}</strong>
+        <span>{role || "Demo workspace"}</span>
+      </div>
+      {organizations.length > 1 && (
+        <label className="field" style={{ padding: "0 10px 8px" }}>
+          <span>Active organization</span>
+          <select
+            value={activeOrganization?.id ?? ""}
+            onChange={(event) => setActiveOrganization(event.target.value)}
+          >
+            {organizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>{organization.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
+      <button onClick={() => openSettings("Business Profile")} role="menuitem" type="button">
+        <Building2 size={16} /> Business profile
+      </button>
+      <button onClick={() => openSettings("Invoice Settings")} role="menuitem" type="button">
+        <FileText size={16} /> Invoice settings
+      </button>
+      <button onClick={toggleTheme} role="menuitem" type="button">
+        {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        {theme === "dark" ? "Light appearance" : "Dark appearance"}
+      </button>
+      <div className="v2-menu-divider" />
+      <button className="danger" onClick={() => void signOut()} role="menuitem" type="button">
+        <LogOut size={16} /> Account / logout
+      </button>
+    </>
+  );
 
   return (
     <>
@@ -257,14 +299,31 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
             <Settings size={18} />
             <span>Settings</span>
           </button>
-          <button className="v2-sidebar-account" onClick={() => setAccountOpen((open) => !open)} type="button">
-            <span className="v2-avatar">{initials || "TF"}</span>
-            <span className="v2-account-copy">
-              <strong>{orgName}</strong>
-              <small>{role ? `${role} account` : "Demo workspace"}</small>
-            </span>
-            <ChevronDown size={15} />
+          <button className="v2-nav-item" onClick={() => openSettings("Invoice Settings")} type="button">
+            <FileText size={18} />
+            <span>Invoice settings</span>
           </button>
+          <div className="v2-menu-boundary v2-sidebar-account-wrap">
+            <button
+              className="v2-sidebar-account"
+              onClick={() => setSidebarAccountOpen((open) => !open)}
+              aria-expanded={sidebarAccountOpen}
+              aria-haspopup="menu"
+              type="button"
+            >
+              <span className="v2-avatar">{initials || "TF"}</span>
+              <span className="v2-account-copy">
+                <strong>{orgName}</strong>
+                <small>{role ? `${role} account` : "Demo workspace"}</small>
+              </span>
+              <ChevronDown size={15} />
+            </button>
+            {sidebarAccountOpen && (
+              <div className="v2-popover-menu v2-popover-menu-up" role="menu">
+                {renderAccountMenuBody()}
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -322,35 +381,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
             </button>
             {accountOpen && (
               <div className="v2-popover-menu" role="menu">
-                <div className="v2-popover-heading">
-                  <strong>{orgName}</strong>
-                  <span>{role || "Demo workspace"}</span>
-                </div>
-                {organizations.length > 1 && (
-                  <label className="field" style={{ padding: "0 10px 8px" }}>
-                    <span>Active organization</span>
-                    <select
-                      value={activeOrganization?.id ?? ""}
-                      onChange={(event) => setActiveOrganization(event.target.value)}
-                    >
-                      {organizations.map((organization) => (
-                        <option key={organization.id} value={organization.id}>{organization.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                <button onClick={() => openSettings("Business Profile")} role="menuitem" type="button">
-                  <Building2 size={16} /> Business profile
-                </button>
-
-                <button onClick={toggleTheme} role="menuitem" type="button">
-                  {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-                  {theme === "dark" ? "Light appearance" : "Dark appearance"}
-                </button>
-                <div className="v2-menu-divider" />
-                <button className="danger" onClick={() => void signOut()} role="menuitem" type="button">
-                  <LogOut size={16} /> Account / logout
-                </button>
+                {renderAccountMenuBody()}
               </div>
             )}
           </div>
@@ -397,6 +428,7 @@ export function AppShell({ view, setView, query, setQuery, openShipment }: Shell
               <span>{role || "Demo workspace"}</span>
             </div>
             <button onClick={() => openSettings("Business Profile")} type="button"><Building2 size={17} /> Business profile</button>
+            <button onClick={() => openSettings("Invoice Settings")} type="button"><FileText size={17} /> Invoice settings</button>
 
             <button onClick={toggleTheme} type="button">
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
