@@ -35,6 +35,11 @@ function formatAmount(value: number | null | undefined, fractionDigits = 0) {
   });
 }
 
+/** The template adds "MR/MS" itself, so drop one already typed into the company name. */
+function stripSalutation(name: string) {
+  return String(name || "").replace(/^\s*(mr\s*\/\s*ms|mr|ms)\.?\s+/i, "").trim();
+}
+
 /** Pure A4 invoice markup: no modal, toolbar, print command, or data access. */
 export function StandaloneInvoiceTemplate({ data, documentRef }: StandaloneInvoiceTemplateProps) {
   const totalAmount = data.rows.reduce((sum, row) => sum + row.amount, 0);
@@ -65,7 +70,7 @@ export function StandaloneInvoiceTemplate({ data, documentRef }: StandaloneInvoi
               <strong>{data.invoiceNumber}</strong>
             </p>
             <div className="arslan-party-details">
-              <p className="arslan-client-name">MR/MS {data.clientName || "COMPANY"}</p>
+              <p className="arslan-client-name">MR/MS {stripSalutation(data.clientName) || "COMPANY"}</p>
               {data.clientTrn && (
                 <p className="arslan-party-line">
                   <span>TRN:</span>
