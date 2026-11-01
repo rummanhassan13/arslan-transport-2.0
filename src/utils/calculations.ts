@@ -176,7 +176,7 @@ export function getClientBillableExpensesTotal(expenses: ShipmentExpense[]) {
 
 export function getDriverReimbursableExpensesTotal(expenses: ShipmentExpense[]) {
   return expenses
-    .filter((expense) => expense.approved && expense.driverReimbursable)
+    .filter((expense) => expense.approved && !expense.deletedAt)
     .map(getExpenseDriverPayAmount)
     .reduce((total, value) => roundMoney(total + value), 0);
 }

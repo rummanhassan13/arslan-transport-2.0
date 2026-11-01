@@ -9,17 +9,14 @@ export type PayDriverExpenseRow = {
   notes: string | null;
 };
 
-/**
- * Expenses that carry an amount for the driver, oldest first. A new expense's Pay driver amount is for reference only;
- * an older driver-reimbursable expense is listed at what it adds to the driver's total.
- */
+/** Expenses that add an amount to the driver's total (their Pay driver amount), oldest first. */
 export function selectPayDriverExpenses(expenses: ShipmentExpense[]): PayDriverExpenseRow[] {
   return expenses
     .filter((expense) => !expense.deletedAt)
     .map((expense) => ({
       id: expense.id,
       category: expense.category,
-      amount: expense.driverReimbursable ? getExpenseDriverPayAmount(expense) : roundMoney(expense.driverPayAmount ?? 0),
+      amount: getExpenseDriverPayAmount(expense),
       date: expense.expenseDate,
       notes: expense.notes,
     }))

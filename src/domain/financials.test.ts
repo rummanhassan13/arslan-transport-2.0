@@ -259,25 +259,74 @@ describe("shipment golden scenarios", () => {
     expect(result.driverBalance).toBe(700);
   });
 
-  it("ignores a Pay driver amount on an expense that is not driver-reimbursable", () => {
-    const base = calculateShipmentProjection(shipment());
-    const result = calculateShipmentProjection(shipment(), [expense({ driverReimbursable: false, driverPayAmount: 80 })]);
-    expect(result.driverReimbursementsPayable).toBe(0);
-    expect(result.driverBalance).toBe(base.driverBalance);
-  });
+  describe("Pay driver on a billed expense (company rate 1000, driver rate 600, actual cost 100, company bill 150)", () => {
+    const billed = (overrides: Partial<ShipmentExpense> = {}) => expense({
+      clientBillable: true,
+      includedInInvoice: true,
+      actualCostAmount: 100,
+      clientBillAmount: 150,
+      ...overrides,
+    });
 
-  it("keeps Pay driver out of the driver total, balance and profit on a new (non-reimbursable) expense", () => {
-    const withoutPay = calculateShipmentProjection(shipment(), [expense({ clientBillable: true, includedInInvoice: true, clientBillAmount: 150 })]);
-    const withPay = calculateShipmentProjection(shipment(), [expense({ clientBillable: true, includedInInvoice: true, clientBillAmount: 150, driverPayAmount: 80 })]);
-    expect(withPay.baseDriverPayable).toBe(600);
-    expect(withPay.driverReimbursementsPayable).toBe(0);
-    expect(withPay.driverBalance).toBe(withoutPay.driverBalance);
-    expect(withPay.totalCost).toBe(withoutPay.totalCost);
-    expect(withPay.estimatedProfit).toBe(withoutPay.estimatedProfit);
-    // Company total is still the company rate plus billed expenses.
-    expect(withPay.estimatedClientRevenue).toBe(1150);
-  });
+    it("(a) pay driver 0, company-paid: only the company bill and the actual cost move; the difference is profit", () => {
+      const result = calculateShipmentProjection(shipment(), [billed()]);
+      expect(result.estimatedClientRevenue).toBe(1150); // Company total = rate + company bill
+      expect(result.baseDriverPayable + result.driverReimbursementsPayable).toBe(600); // Driver total
+      expect(result.driverBalance).toBe(600);
+      expect(result.estimatedProfit).toBe(450); // 1150 - 600 - 100
+    });
 
+    it("(b) pay driver 80 adds to the driver total and pending; the uncovered 20 of the actual cost stays a company cost", () => {
+      const result = calculateShipmentProjection(shipment(), [billed({ driverPayAmount: 80 })]);
+      expect(result.estimatedClientRevenue).toBe(1150);
+      expect(result.baseDriverPayable + result.driverReimbursementsPayable).toBe(680); // 600 + 80
+      expect(result.driverBalance).toBe(680);
+      expect(result.assignmentSettlements[0].payable).toBe(680);
+      expect(result.totalCost).toBe(700); // driver rate 600 + the expense's cost max(100, 80)
+      expect(result.estimatedProfit).toBe(450); // 1150 - 680 - 20: the bill minus the actual cost is the profit
+    });
+
+    it("(b) pay driver above the actual cost: the driver amount is the cost", () => {
+      const result = calculateShipmentProjection(shipment(), [billed({ driverPayAmount: 120 })]);
+      expect(result.baseDriverPayable + result.driverReimbursementsPayable).toBe(720);
+      expect(result.estimatedProfit).toBe(430); // 1150 - 720
+    });
+
+    it("(c) company bill 0 with pay driver 80: nothing added to the company total, the cost lowers profit", () => {
+      const result = calculateShipmentProjection(shipment(), [billed({ clientBillAmount: 0, driverPayAmount: 80 })]);
+      expect(result.estimatedClientRevenue).toBe(1000);
+      expect(result.baseDriverPayable + result.driverReimbursementsPayable).toBe(680);
+      expect(result.estimatedProfit).toBe(300); // 1000 - 680 - 20
+    });
+
+    it("a set Pay driver amount wins over the older reimbursable flag and is not added to the actual cost", () => {
+      const result = calculateShipmentProjection(shipment(), [billed({
+        shipmentAssignmentId: "assignment-1",
+        paidBy: "driver",
+        driverReimbursable: true,
+        driverPayAmount: 80,
+      })]);
+      expect(result.baseDriverPayable + result.driverReimbursementsPayable).toBe(680); // not 780
+      expect(result.assignmentSettlements[0].payable).toBe(680);
+      expect(result.estimatedProfit).toBe(1150 - 680);
+    });
+
+    it("an older reimbursable expense without a Pay driver amount still adds its actual cost; an explicit 0 adds nothing", () => {
+      const legacy = calculateShipmentProjection(shipment(), [billed({ shipmentAssignmentId: "assignment-1", paidBy: "driver", driverReimbursable: true })]);
+      expect(legacy.baseDriverPayable + legacy.driverReimbursementsPayable).toBe(700);
+      const zeroed = calculateShipmentProjection(shipment(), [billed({ shipmentAssignmentId: "assignment-1", paidBy: "driver", driverReimbursable: true, driverPayAmount: 0 })]);
+      expect(zeroed.baseDriverPayable + zeroed.driverReimbursementsPayable).toBe(600);
+    });
+
+    it("pay driver adds to the pending balance, which payments then reduce", () => {
+      const result = calculateShipmentProjection(
+        shipment(),
+        [billed({ driverPayAmount: 80 })],
+        [driverPayment({ amount: 200, paymentType: "settlement" })],
+      );
+      expect(result.driverBalance).toBe(480); // 680 - 200
+    });
+  });
   it("does not authorize unapproved expenses", () => {
     const result = calculateShipmentProjection(shipment(), [expense({ approved: false, clientBillable: true })]);
     expect(result.estimatedClientRevenue).toBe(1000);

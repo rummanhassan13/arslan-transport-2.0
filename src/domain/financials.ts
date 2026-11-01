@@ -90,9 +90,23 @@ export function getExpenseClientBillAmount(expense: ShipmentExpense): number {
   return roundMoney(expense.clientBillAmount ?? expense.amount ?? 0);
 }
 
-/** Amount added to the driver's total for a driver-reimbursable expense; legacy rows fall back to the actual cost. */
+/**
+ * Amount an expense adds to the driver's total. A set Pay driver amount always wins; without one, an older
+ * driver-reimbursable expense adds its actual cost (previous behaviour) and any other expense adds nothing.
+ */
 export function getExpenseDriverPayAmount(expense: ShipmentExpense): number {
-  return roundMoney(expense.driverPayAmount ?? getExpenseActualCost(expense));
+  if (expense.driverPayAmount !== null && expense.driverPayAmount !== undefined) return roundMoney(expense.driverPayAmount);
+  return expense.driverReimbursable ? getExpenseActualCost(expense) : 0;
+}
+
+/**
+ * What an expense costs the company. Paid by the company: the larger of the actual cost and what it pays the driver
+ * for it (so the part of the actual cost the driver amount does not cover is still a company cost). Paid by anyone
+ * else: only what the company pays the driver.
+ */
+export function getExpenseCompanyCost(expense: ShipmentExpense): number {
+  const driverPay = getExpenseDriverPayAmount(expense);
+  return expense.paidBy === "company" ? Math.max(getExpenseActualCost(expense), driverPay) : driverPay;
 }
 
 /** Amount shown for an expense in shipment views: what the company is billed, or the actual cost when not billed. */
@@ -180,14 +194,9 @@ export function calculateShipmentProjection(
   );
   const baseDriverPayable = sumMoney(assignments.map((assignment) => assignment.driverRate));
   const driverReimbursementsPayable = sumMoney(
-    approved.filter((expense) => expense.driverReimbursable).map(getExpenseDriverPayAmount),
+    approved.map(getExpenseDriverPayAmount),
   );
-  // Cost to the company: what it pays the driver for reimbursable expenses, otherwise the actual cost of expenses it paid itself.
-  const companyOperationalCost = sumMoney(
-    approved
-      .filter((expense) => expense.paidBy === "company" || expense.driverReimbursable)
-      .map((expense) => (expense.driverReimbursable ? getExpenseDriverPayAmount(expense) : getExpenseActualCost(expense))),
-  );
+  const companyOperationalCost = sumMoney(approved.map(getExpenseCompanyCost));
   const companyPaidCost = sumMoney(
     approved.filter((expense) => expense.paidBy === "company").map(getExpenseActualCost),
   );
@@ -201,7 +210,7 @@ export function calculateShipmentProjection(
   const assignmentSettlements = assignments.map((assignment, index): AssignmentSettlementProjection => {
     const assignmentId = assignment.id ?? null;
     const reimbursable = approved.filter((expense) => {
-      if (!expense.driverReimbursable) return false;
+      if (getExpenseDriverPayAmount(expense) <= 0) return false;
       if (expense.shipmentAssignmentId && assignmentId) return expense.shipmentAssignmentId === assignmentId;
       if (assignments.length === 1) return true;
       return false;
@@ -230,7 +239,7 @@ export function calculateShipmentProjection(
 
   if (assignments.length > 1) {
     for (const expense of approved) {
-      if (expense.driverReimbursable && !expense.shipmentAssignmentId) {
+      if (getExpenseDriverPayAmount(expense) > 0 && !expense.shipmentAssignmentId) {
         warnings.push({
           code: "UNALLOCATED_DRIVER_EXPENSE",
           message: `Driver-reimbursable expense ${expense.category} is not allocated to an assignment.`,
