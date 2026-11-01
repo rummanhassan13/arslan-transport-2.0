@@ -805,6 +805,7 @@ function DemoApp() {
           invoiceRecord={invoicePreview.invoice}
           invoiceItems={invoicePreview.invoice ? invoiceItemsByInvoice.get(invoicePreview.invoice.id) ?? [] : []}
           shipmentExpenses={allExpenses.filter((e) => e.shipmentId === invoicePreview.shipment.id)}
+          client={clients.find((item) => item.id === (invoicePreview.invoice?.clientId ?? invoicePreview.shipment.clientId))}
           onClose={() => setInvoicePreview(null)}
         />
       )}
@@ -815,6 +816,7 @@ function DemoApp() {
           invoiceItems={invoiceItemsByInvoice.get(shipmentPrintBundle.invoice.id) ?? []}
           shipmentExpenses={allExpenses.filter((expense) => expense.shipmentId === shipmentPrintBundle.shipment.id)}
           attachments={shipmentPrintBundle.attachments}
+          client={clients.find((item) => item.id === (shipmentPrintBundle.invoice.clientId ?? shipmentPrintBundle.shipment.clientId))}
           onClose={() => setShipmentPrintBundle(null)}
         />
       )}

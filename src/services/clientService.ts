@@ -10,13 +10,28 @@ type ClientRow = {
   email: string | null;
   address: string | null;
   notes: string | null;
+  invoice_company_name: string | null;
+  trn: string | null;
+  show_iban_on_invoice: boolean;
   status: "active" | "inactive";
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
 };
 
-const clientSelect = "id, organization_id, name, contact_person, phone, email, address, notes, status, created_at, updated_at, deleted_at";
+const baseClientSelect = "id, organization_id, name, contact_person, phone, email, address, notes, status, created_at, updated_at, deleted_at";
+const clientSelect = baseClientSelect.replace("notes,", "notes, invoice_company_name, trn, show_iban_on_invoice,");
+
+// Until migration 020 (invoice_company_name, trn, show_iban_on_invoice) is applied, the app keeps working without those columns.
+const CLIENT_TIERS = [
+  { select: clientSelect, invoiceDetails: true },
+  { select: baseClientSelect, invoiceDetails: false },
+] as const;
+
+function isMissingInvoiceDetailsColumnError(error: { message?: string; details?: string; hint?: string } | null) {
+  const text = [error?.message, error?.details, error?.hint].filter(Boolean).join(" ").toLowerCase();
+  return text.includes("invoice_company_name") || text.includes("show_iban_on_invoice") || /\btrn\b/.test(text);
+}
 
 function toClient(row: ClientRow): Client {
   return {
@@ -28,6 +43,9 @@ function toClient(row: ClientRow): Client {
     email: row.email,
     address: row.address,
     notes: row.notes,
+    invoiceCompanyName: row.invoice_company_name ?? null,
+    trn: row.trn ?? null,
+    showIbanOnInvoice: row.show_iban_on_invoice ?? false,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -35,7 +53,7 @@ function toClient(row: ClientRow): Client {
   };
 }
 
-function toClientPayload(input: ClientInput | ClientUpdateInput) {
+function toClientPayload(input: ClientInput | ClientUpdateInput, includeInvoiceDetails = true) {
   return {
     ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.contactPerson !== undefined ? { contact_person: input.contactPerson } : {}),
@@ -43,6 +61,9 @@ function toClientPayload(input: ClientInput | ClientUpdateInput) {
     ...(input.email !== undefined ? { email: input.email } : {}),
     ...(input.address !== undefined ? { address: input.address } : {}),
     ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    ...(includeInvoiceDetails && input.invoiceCompanyName !== undefined ? { invoice_company_name: input.invoiceCompanyName } : {}),
+    ...(includeInvoiceDetails && input.trn !== undefined ? { trn: input.trn } : {}),
+    ...(includeInvoiceDetails && input.showIbanOnInvoice !== undefined ? { show_iban_on_invoice: input.showIbanOnInvoice } : {}),
     ...(input.status !== undefined ? { status: input.status } : {}),
   };
 }
@@ -57,54 +78,63 @@ async function getCurrentUserId() {
 export async function listClients(organizationId: string): Promise<Client[]> {
   const supabase = requireSupabaseClient();
 
-  const { data, error } = await supabase
+  const query = (select: string) => supabase
     .from("clients")
-    .select(clientSelect)
+    .select(select)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
     .order("name", { ascending: true });
 
+  let { data, error } = await query(CLIENT_TIERS[0].select);
+  if (error && isMissingInvoiceDetailsColumnError(error)) ({ data, error } = await query(CLIENT_TIERS[1].select));
+
   if (error) throw new Error(`Unable to load companies: ${error.message}`);
-  return ((data ?? []) as ClientRow[]).map(toClient);
+  return ((data ?? []) as unknown as ClientRow[]).map(toClient);
 }
 
 export async function createClient(organizationId: string, input: ClientInput): Promise<Client> {
   const supabase = requireSupabaseClient();
   const userId = await getCurrentUserId();
 
-  const { data, error } = await supabase
+  const insertWith = (tier: (typeof CLIENT_TIERS)[number]) => supabase
     .from("clients")
     .insert({
-      ...toClientPayload({ ...input, status: input.status ?? "active" }),
+      ...toClientPayload({ ...input, status: input.status ?? "active" }, tier.invoiceDetails),
       organization_id: organizationId,
       created_by: userId,
       updated_by: userId,
     })
-    .select(clientSelect)
+    .select(tier.select)
     .single();
 
+  let { data, error } = await insertWith(CLIENT_TIERS[0]);
+  if (error && isMissingInvoiceDetailsColumnError(error)) ({ data, error } = await insertWith(CLIENT_TIERS[1]));
+
   if (error) throw new Error(`Unable to create company: ${error.message}`);
-  return toClient(data as ClientRow);
+  return toClient(data as unknown as ClientRow);
 }
 
 export async function updateClient(organizationId: string, clientId: string, input: ClientUpdateInput): Promise<Client> {
   const supabase = requireSupabaseClient();
   const userId = await getCurrentUserId();
 
-  const { data, error } = await supabase
+  const updateWith = (tier: (typeof CLIENT_TIERS)[number]) => supabase
     .from("clients")
     .update({
-      ...toClientPayload(input),
+      ...toClientPayload(input, tier.invoiceDetails),
       updated_by: userId,
     })
     .eq("id", clientId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
-    .select(clientSelect)
+    .select(tier.select)
     .single();
 
+  let { data, error } = await updateWith(CLIENT_TIERS[0]);
+  if (error && isMissingInvoiceDetailsColumnError(error)) ({ data, error } = await updateWith(CLIENT_TIERS[1]));
+
   if (error) throw new Error(`Unable to update company: ${error.message}`);
-  return toClient(data as ClientRow);
+  return toClient(data as unknown as ClientRow);
 }
 
 export async function softDeleteClient(organizationId: string, clientId: string): Promise<void> {

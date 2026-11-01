@@ -12,6 +12,9 @@ describe("StandaloneInvoiceTemplate", () => {
           invoiceNumber: "1234",
           invoiceDate: "15-SEP-26",
           clientName: "Example Logistics",
+          clientTrn: "100123456700003",
+          businessName: "Arslan Transportation",
+          businessTrn: "104401155700003",
           rows: [
             { description: "TRIP FROM: DUBAI TO RIYADH\n\nDRIVER NAME: Ahmed", unitPrice: 1200, amount: 1200 },
             { description: "FASAH", unitPrice: 75, amount: 75 },
@@ -23,6 +26,9 @@ describe("StandaloneInvoiceTemplate", () => {
     expect(screen.getByRole("article", { name: "Tax invoice 1234" })).toBeTruthy();
     expect(screen.getByText("MR/MS Example Logistics")).toBeTruthy();
     expect(screen.getByText("1,275.00/-")).toBeTruthy();
+    expect(screen.getByText("100123456700003")).toBeTruthy();
+    expect(screen.getByText("104401155700003")).toBeTruthy();
+    expect(screen.queryByText("IBAN:")).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
   });
 });

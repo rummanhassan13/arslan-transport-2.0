@@ -231,11 +231,14 @@ function ClientDialog({
     email: client?.email ?? "",
     address: client?.address ?? "",
     notes: client?.notes ?? "",
+    invoiceCompanyName: client?.invoiceCompanyName ?? "",
+    trn: client?.trn ?? "",
+    showIbanOnInvoice: client?.showIbanOnInvoice ?? false,
     status: client?.status ?? "active",
   });
   const [saving, setSaving] = useState(false);
 
-  const update = (key: keyof ClientInput, value: string) => {
+  const update = (key: keyof ClientInput, value: string | boolean) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
@@ -251,6 +254,9 @@ function ClientDialog({
         email: form.email?.trim() || null,
         address: form.address?.trim() || null,
         notes: form.notes?.trim() || null,
+        invoiceCompanyName: form.invoiceCompanyName?.trim() || null,
+        trn: form.trn?.trim() || null,
+        showIbanOnInvoice: Boolean(form.showIbanOnInvoice),
       });
     } finally {
       setSaving(false);
@@ -305,6 +311,34 @@ function ClientDialog({
           <textarea value={form.notes ?? ""} onChange={(event) => update("notes", event.target.value)} />
         </label>
         {error && <p className="form-error">{error}</p>}
+          </div>
+        </section>
+        <section className="form-section">
+          <div className="form-section-header">
+            <h3>Invoice Details</h3>
+            <p>These values appear on this company&apos;s invoices.</p>
+          </div>
+          <div className="form-grid">
+            <label className="field">
+              <span>Company Name on Invoice</span>
+              <input
+                value={form.invoiceCompanyName ?? ""}
+                onChange={(event) => update("invoiceCompanyName", event.target.value)}
+                placeholder={form.name || "Defaults to the company name"}
+              />
+            </label>
+            <label className="field">
+              <span>Company TRN</span>
+              <input value={form.trn ?? ""} onChange={(event) => update("trn", event.target.value)} placeholder="Optional" />
+            </label>
+            <label className="field form-wide" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(form.showIbanOnInvoice)}
+                onChange={(event) => update("showIbanOnInvoice", event.target.checked)}
+              />
+              <span>Show our IBAN on this company&apos;s invoices</span>
+            </label>
           </div>
         </section>
       </form>

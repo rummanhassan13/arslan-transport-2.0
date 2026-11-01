@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Download, ExternalLink, FileText, LoaderCircle, RefreshCcw } from "lucide-react";
-import type { Invoice, InvoiceItem, Shipment, ShipmentAttachment, ShipmentExpense } from "../types/domain";
+import type { Client, Invoice, InvoiceItem, Shipment, ShipmentAttachment, ShipmentExpense } from "../types/domain";
 import { buildShipmentPrintBundle, shipmentPrintBundleFileName, type ShipmentPrintProgress } from "../services/shipmentPrintBundle";
 import { formatFileSize } from "../utils/fileValidation";
 import { InvoicePrintTemplate } from "./InvoicePrintTemplate";
@@ -12,6 +12,7 @@ type ShipmentPrintBundleModalProps = {
   invoiceItems: InvoiceItem[];
   shipmentExpenses: ShipmentExpense[];
   attachments: ShipmentAttachment[];
+  client?: Client;
   onClose: () => void;
 };
 
@@ -23,7 +24,7 @@ function progressLabel(progress: ShipmentPrintProgress | null) {
   return `Adding ${progress.fileName || "shipment document"}...`;
 }
 
-export function ShipmentPrintBundleModal({ shipment, invoiceRecord, invoiceItems, shipmentExpenses, attachments, onClose }: ShipmentPrintBundleModalProps) {
+export function ShipmentPrintBundleModal({ shipment, invoiceRecord, invoiceItems, shipmentExpenses, attachments, client, onClose }: ShipmentPrintBundleModalProps) {
   const invoiceRef = useRef<HTMLElement | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [progress, setProgress] = useState<ShipmentPrintProgress | null>(null);
@@ -65,7 +66,7 @@ export function ShipmentPrintBundleModal({ shipment, invoiceRecord, invoiceItems
       controller.abort();
       if (generatedUrl) URL.revokeObjectURL(generatedUrl);
     };
-  }, [attachments, attempt, invoiceItems, invoiceRecord, shipment, shipmentExpenses]);
+  }, [attachments, attempt, client, invoiceItems, invoiceRecord, shipment, shipmentExpenses]);
 
   const preparing = !pdfUrl && !error;
   const completion = progress ? Math.round((progress.completed / progress.total) * 100) : 5;
@@ -85,7 +86,7 @@ export function ShipmentPrintBundleModal({ shipment, invoiceRecord, invoiceItems
       </>}
     >
       <div className="shipment-print-capture" aria-hidden="true">
-        <InvoicePrintTemplate documentRef={invoiceRef} hideToolbar invoiceItems={invoiceItems} invoiceRecord={invoiceRecord} shipment={shipment} shipmentExpenses={shipmentExpenses} />
+        <InvoicePrintTemplate client={client} documentRef={invoiceRef} hideToolbar invoiceItems={invoiceItems} invoiceRecord={invoiceRecord} shipment={shipment} shipmentExpenses={shipmentExpenses} />
       </div>
 
       {preparing && <div className="shipment-print-state" aria-live="polite">

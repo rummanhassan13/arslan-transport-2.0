@@ -128,6 +128,9 @@ export type Client = {
   email: string | null;
   address: string | null;
   notes: string | null;
+  invoiceCompanyName: string | null;
+  trn: string | null;
+  showIbanOnInvoice: boolean;
   status: "active" | "inactive";
   createdAt: string;
   updatedAt: string;
@@ -141,6 +144,9 @@ export type ClientInput = {
   email?: string | null;
   address?: string | null;
   notes?: string | null;
+  invoiceCompanyName?: string | null;
+  trn?: string | null;
+  showIbanOnInvoice?: boolean;
   status?: "active" | "inactive";
 };
 
