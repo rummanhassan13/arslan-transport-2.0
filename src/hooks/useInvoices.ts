@@ -332,21 +332,6 @@ export function useInvoices(shipments: Shipment[], expenses: ShipmentExpense[] =
     [createInvoice, expenses, formatInvoiceNumber, invoiceSettings, invoices, organizationId],
   );
 
-  /** Rebuilds a draft invoice from the shipment's current rate and expenses; non-draft invoices are returned unchanged. */
-  const refreshDraftInvoice = useCallback(
-    async (shipmentId: string) => {
-      if (env.demoMode || !organizationId) return null;
-      const generated = await generateSupabaseInvoiceForShipment(organizationId, shipmentId, true);
-      setInvoices((current) => [generated.invoice, ...current.filter((item) => item.id !== generated.invoice.id)]);
-      setInvoiceItems((current) => [
-        ...current.filter((item) => item.invoiceId !== generated.invoice.id),
-        ...generated.items,
-      ]);
-      return generated.invoice;
-    },
-    [organizationId],
-  );
-
   const updateInvoiceStatus = useCallback(async (invoiceId: string, status: InvoiceRecordStatus) => {
     if (!["draft", "sent", "cancelled"].includes(status)) {
       throw new Error("Paid, partially paid, and overdue are derived from the payment ledger and due date.");
@@ -404,7 +389,6 @@ export function useInvoices(shipments: Shipment[], expenses: ShipmentExpense[] =
     refreshInvoices,
     createInvoice,
     createInvoiceForShipment,
-    refreshDraftInvoice,
     updateInvoiceStatus,
     deleteInvoice,
   };
