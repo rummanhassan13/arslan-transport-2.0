@@ -194,6 +194,7 @@ function DemoApp() {
     loading: invoicesLoading,
     error: invoicesError,
     createInvoiceForShipment,
+    refreshDraftInvoice,
     refreshInvoices,
     updateInvoiceStatus,
     deleteInvoice,
@@ -387,6 +388,8 @@ function DemoApp() {
       if (editShipmentId) {
         const editedShipment = displayShipments.find((item) => item.id === editShipmentId);
         await updateShipment(editShipmentId, preparedInput);
+        // Draft invoices are a snapshot; rebuild so an edited rate or route reaches the invoice.
+        await refreshDraftInvoice(editShipmentId).catch(() => undefined);
         const statusNote = await startTransitIfAssigned(editShipmentId, editedShipment?.status, hasAssignedDriver(preparedInput));
         setEditShipmentId(null);
         setToast(`Shipment updated.${statusNote}`);
@@ -544,10 +547,13 @@ function DemoApp() {
   };
 
   const previewInvoice = async (shipment: Shipment, invoice?: Invoice) => {
-    const resolvedInvoice = invoice ?? invoices.find((row) => row.shipmentId === shipment.id);
+    let resolvedInvoice = invoice ?? invoices.find((row) => row.shipmentId === shipment.id);
     if (!resolvedInvoice) {
       setToast("This shipment is not invoiced. Use Generate Invoice when billing is ready.");
       return;
+    }
+    if (resolvedInvoice.status === "draft") {
+      resolvedInvoice = (await refreshDraftInvoice(shipment.id).catch(() => null)) ?? resolvedInvoice;
     }
     setInvoicePreview({ shipment, invoice: resolvedInvoice });
   };

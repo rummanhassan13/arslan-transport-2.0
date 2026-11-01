@@ -1774,17 +1774,16 @@ tbody tr:last-child td { border-bottom: 0; }
   text-align: center;
 }
 .arslan-party-box {
-  border: 1px solid #000;
   display: grid;
   font-size: 14px;
   grid-template-columns: 1fr 1fr;
   margin: 0 0 24px;
 }
 .arslan-party-col {
-  padding: 8px 10px;
+  padding: 0;
 }
 .arslan-party-col + .arslan-party-col {
-  border-left: 1px solid #000;
+  padding-left: 24px;
 }
 .arslan-party-details {
   margin-top: 14px;
