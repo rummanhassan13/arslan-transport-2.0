@@ -3,6 +3,7 @@ import { MoveRight, Plus, Printer, Trash2 } from "lucide-react";
 import { Modal, StatusBadge } from "./ui";
 import type { Shipment, ShipmentExpense, ShipmentExpenseInput, ShipmentAttachment, ClientPayment, DriverPayment, DriverPaymentInput, InvoiceStatus, PaymentStatus } from "../types/domain";
 import { SETTABLE_INVOICE_STATUSES, invoiceStatusLabel } from "../utils/statusDerivation";
+import { getDriverRateRows, isCountedInCompanyTotal, selectPayDriverExpenses } from "../utils/shipmentBreakdown";
 import { COMPANY_PAYMENT_STATUS_OPTIONS, DRIVER_PAYMENT_STATUS_OPTIONS, PAYMENT_STATUS_LOCKED_HINT, canMovePaymentStatus } from "../utils/paymentStatusActions";
 import { money, formatDate, labelize } from "../utils/formatters";
 import { calculateShipmentFinancials, getExpenseDisplayAmount } from "../utils/calculations";
@@ -94,6 +95,9 @@ export function ShipmentSummaryModal({
   // Load attachments for this shipment
   const { attachments, loading: loadingAttachments } = useShipmentAttachments(shipment.id);
 
+
+  const driverRateRows = useMemo(() => getDriverRateRows(shipment), [shipment]);
+  const payDriverRows = useMemo(() => selectPayDriverExpenses(shipmentExpenses), [shipmentExpenses]);
 
   const financials = useMemo(() => {
     return calculateShipmentFinancials(shipment, shipmentExpenses);
@@ -251,66 +255,72 @@ export function ShipmentSummaryModal({
                   )}
                 </div>
                 
-                {shipmentExpenses.length === 0 ? (
-                  <p className="text-sm text-[var(--ink-3)]">No expenses added yet.</p>
-                ) : (
-                  <div className="w-full flex flex-col">
-                    {/* Header */}
-                    <div 
-                      className="grid gap-2 border-b border-[var(--line-soft)] pb-1.5"
-                      style={{ gridTemplateColumns: canManage ? "minmax(0, 1fr) 72px 56px 28px" : "minmax(0, 1fr) 72px 56px" }}
-                    >
-                      <div className="font-semibold text-[var(--ink-3)] text-xs">Category</div>
-                      <div className="font-semibold text-[var(--ink-3)] text-xs text-right">Amount</div>
-                      <div className="font-semibold text-[var(--ink-3)] text-xs text-right">Date</div>
-                      {canManage && <div></div>}
-                    </div>
-                    {/* Body */}
-                    <div className="flex flex-col">
-                      {shipmentExpenses.map((expense) => (
-                        <div 
-                          key={expense.id} 
-                          className="grid gap-2 border-b border-[var(--line-soft)] last:border-0 py-1.5 items-start text-xs"
-                          style={{ gridTemplateColumns: canManage ? "minmax(0, 1fr) 72px 56px 28px" : "minmax(0, 1fr) 72px 56px" }}
-                        >
-                          <div className="min-w-0 flex flex-col">
-                            <div className="capitalize truncate font-medium text-[var(--ink-2)]" title={labelize(expense.category)}>
-                              {labelize(expense.category)}
-                            </div>
-                            {expense.notes && <div className="text-[10px] text-[var(--ink-3)] mt-0.5 truncate" title={expense.notes}>{expense.notes}</div>}
+                <div className="w-full flex flex-col">
+                  {/* Header */}
+                  <div
+                    className="grid gap-2 border-b border-[var(--line-soft)] pb-1.5"
+                    style={{ gridTemplateColumns: canManage ? "minmax(0, 1fr) 72px 56px 28px" : "minmax(0, 1fr) 72px 56px" }}
+                  >
+                    <div className="font-semibold text-[var(--ink-3)] text-xs">Category</div>
+                    <div className="font-semibold text-[var(--ink-3)] text-xs text-right">Amount</div>
+                    <div className="font-semibold text-[var(--ink-3)] text-xs text-right">Date</div>
+                    {canManage && <div></div>}
+                  </div>
+                  {/* Company rate: the agreed rate, before expenses */}
+                  <div
+                    className="grid gap-2 border-b border-[var(--line-soft)] py-1.5 items-start text-xs"
+                    style={{ gridTemplateColumns: canManage ? "minmax(0, 1fr) 72px 56px 28px" : "minmax(0, 1fr) 72px 56px" }}
+                  >
+                    <div className="font-medium text-[var(--ink-2)]">Company rate</div>
+                    <div className="font-semibold text-right text-[var(--ink-2)] truncate">{money(shipment.companyRate)}</div>
+                  </div>
+                  {/* Body */}
+                  <div className="flex flex-col">
+                    {shipmentExpenses.map((expense) => (
+                      <div
+                        key={expense.id}
+                        className="grid gap-2 border-b border-[var(--line-soft)] last:border-0 py-1.5 items-start text-xs"
+                        style={{ gridTemplateColumns: canManage ? "minmax(0, 1fr) 72px 56px 28px" : "minmax(0, 1fr) 72px 56px" }}
+                      >
+                        <div className="min-w-0 flex flex-col">
+                          <div className="capitalize truncate font-medium text-[var(--ink-2)]" title={labelize(expense.category)}>
+                            {labelize(expense.category)}
                           </div>
-                          <div className="font-semibold text-right text-[var(--ink-2)] truncate">
-                            {money(getExpenseDisplayAmount(expense))}
-                          </div>
-                          <div className="text-right text-[var(--ink-3)] truncate">
-                            {new Date(expense.expenseDate).toLocaleDateString("en-US", { day: '2-digit', month: 'short' })}
-                          </div>
-                          {canManage && (
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                className="text-[var(--danger-color)] hover:bg-[var(--danger-color)] hover:text-white rounded p-1 transition-colors inline-flex justify-center items-center"
-                                onClick={() => {
-                                  if (window.confirm("Are you sure you want to delete this expense?")) {
-                                    void deleteExpense(expense.id);
-                                  }
-                                }}
-                                title="Delete expense"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
+                          {expense.notes && <div className="text-[10px] text-[var(--ink-3)] mt-0.5 truncate" title={expense.notes}>{expense.notes}</div>}
+                          {!isCountedInCompanyTotal(expense) && (
+                            <div className="text-[10px] text-[var(--ink-3)] mt-0.5">{expense.approved ? "Not billed to company" : "Pending approval"}, not in total</div>
                           )}
                         </div>
-                      ))}
-                    </div>
+                        <div className="font-semibold text-right text-[var(--ink-2)] truncate">
+                          {money(getExpenseDisplayAmount(expense))}
+                        </div>
+                        <div className="text-right text-[var(--ink-3)] truncate">
+                          {new Date(expense.expenseDate).toLocaleDateString("en-US", { day: '2-digit', month: 'short' })}
+                        </div>
+                        {canManage && (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              className="text-[var(--danger-color)] hover:bg-[var(--danger-color)] hover:text-white rounded p-1 transition-colors inline-flex justify-center items-center"
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this expense?")) {
+                                  void deleteExpense(expense.id);
+                                }
+                              }}
+                              title="Delete expense"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+                {shipmentExpenses.length === 0 && <p className="text-sm text-[var(--ink-3)] mt-2">No expenses added yet.</p>}
                 <div className="mt-3 pt-3 border-t border-[var(--line-soft)] flex justify-between items-center font-bold text-sm">
-                  <span>Total Expenses:</span>
-                  <span className="text-[var(--accent-strong)]">
-                    {money(shipmentExpenses.reduce((sum, e) => sum + getExpenseDisplayAmount(e), 0))}
-                  </span>
+                  <span title="Company rate plus the company bill amount of billed expenses">Total:</span>
+                  <span className="text-[var(--accent-strong)]">{money(financials.companyTotal)}</span>
                 </div>
               </div>
             
@@ -335,6 +345,42 @@ export function ShipmentSummaryModal({
                   )}
                 </div>
                 
+                {/* Driver rate: the agreed amount per driver (not added to the amounts below) */}
+                {driverRateRows.length > 0 && (
+                  <div className="w-full flex flex-col mb-3">
+                    {driverRateRows.map((row) => (
+                      <div key={row.key} className="grid gap-2 border-b border-[var(--line-soft)] py-1.5 items-start text-xs" style={{ gridTemplateColumns: "minmax(0, 1fr) 72px" }}>
+                        <div className="font-medium text-[var(--ink-2)] truncate" title={row.driverName}>
+                          Driver rate{driverRateRows.length > 1 ? ` - ${row.driverName}` : ""}
+                        </div>
+                        <div className="font-semibold text-right text-[var(--ink-2)] truncate">{money(row.amount)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Expenses added to driver: for reference, not summed with the rate */}
+                {payDriverRows.length > 0 && (
+                  <div className="w-full flex flex-col mb-3">
+                    <div className="text-[10px] text-[var(--ink-3)] uppercase font-semibold tracking-wider mb-1">Expenses added to driver</div>
+                    {payDriverRows.map((row) => (
+                      <div key={row.id} className="grid gap-2 border-b border-[var(--line-soft)] last:border-0 py-1.5 items-start text-xs" style={{ gridTemplateColumns: "minmax(0, 1fr) 72px 56px" }}>
+                        <div className="min-w-0 flex flex-col">
+                          <div className="capitalize truncate font-medium text-[var(--ink-2)]" title={labelize(row.category)}>{labelize(row.category)}</div>
+                          {row.notes && <div className="text-[10px] text-[var(--ink-3)] mt-0.5 truncate" title={row.notes}>{row.notes}</div>}
+                        </div>
+                        <div className="font-semibold text-right text-[var(--ink-2)] truncate">{money(row.amount)}</div>
+                        <div className="text-right text-[var(--ink-3)] truncate">
+                          {new Date(row.date).toLocaleDateString("en-US", { day: '2-digit', month: 'short' })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(driverRateRows.length > 0 || payDriverRows.length > 0) && (
+                  <div className="text-[10px] text-[var(--ink-3)] uppercase font-semibold tracking-wider mb-1">Payments</div>
+                )}
                 {allPayments.length === 0 ? (
                   <p className="text-sm text-[var(--ink-3)]">No payments recorded for this shipment.</p>
                 ) : (
