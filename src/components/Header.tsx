@@ -11,7 +11,7 @@ import type { CurrencyCode } from "../constants/currencies";
 import type { CompanyProfileSettings, InvoiceSettings } from "../contexts/BusinessSettingsContext";
 import { EmptyState, Modal, StatusBadge } from "./ui";
 
-const PROFILE_ITEMS = ["Business Profile", "User & Roles", "Billing & Plan"] as const;
+const PROFILE_ITEMS = ["Business Profile", "Invoice Settings", "User & Roles", "Billing & Plan"] as const;
 export type ProfileItem = (typeof PROFILE_ITEMS)[number];
 
 export function Header({
@@ -427,6 +427,7 @@ function BrandLockup({ logoUrl, companyName }: { logoUrl?: string; companyName: 
 
 export function SettingsPanel({ panel, orgName, onClose }: { panel: ProfileItem; orgName: string; onClose: () => void }) {
   if (panel === "Business Profile") return <CompanyProfilePanel orgName={orgName} onClose={onClose} />;
+  if (panel === "Invoice Settings") return <InvoiceSettingsPanel onClose={onClose} />;
   if (panel === "User & Roles") return <UserRolesPanel onClose={onClose} />;
 
   return <BillingPlanPanel onClose={onClose} />;
