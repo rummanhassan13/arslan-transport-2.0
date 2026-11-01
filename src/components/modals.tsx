@@ -1331,18 +1331,20 @@ export function InvoicePreview({
   invoiceRecord,
   invoiceItems = [],
   shipmentExpenses = [],
+  client,
   onClose,
 }: {
   shipment: Shipment;
   invoiceRecord?: Invoice;
   invoiceItems?: InvoiceItem[];
   shipmentExpenses?: import("../types/domain").ShipmentExpense[];
+  client?: Client;
   onClose: () => void;
 }) {
   const invoiceNumber = invoiceRecord?.invoiceNumber || shipment.invoice;
   return (
     <Modal title={`Invoice Preview - ${invoiceNumber}`} onClose={onClose} size="wide">
-      <InvoicePrintTemplate shipment={shipment} invoiceRecord={invoiceRecord} invoiceItems={invoiceItems} shipmentExpenses={shipmentExpenses} />
+      <InvoicePrintTemplate shipment={shipment} invoiceRecord={invoiceRecord} invoiceItems={invoiceItems} shipmentExpenses={shipmentExpenses} client={client} />
     </Modal>
   );
 }

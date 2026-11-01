@@ -448,7 +448,9 @@ function CompanyProfilePanel({ orgName, onClose }: { orgName: string; onClose: (
     form.email !== company.email ||
     form.address !== company.address ||
     form.cityCountry !== company.cityCountry ||
-    form.logoUrl !== company.logoUrl;
+    form.logoUrl !== company.logoUrl ||
+    form.trn !== company.trn ||
+    form.iban !== company.iban;
 
   useEffect(() => {
     setForm({
@@ -524,6 +526,8 @@ function CompanyProfilePanel({ orgName, onClose }: { orgName: string; onClose: (
         address: form.address.trim(),
         cityCountry: form.cityCountry.trim(),
         logoUrl: form.logoUrl.trim(),
+        trn: form.trn.trim(),
+        iban: form.iban.trim(),
       });
       setSaved(true);
     } catch (error) {
@@ -543,6 +547,14 @@ function CompanyProfilePanel({ orgName, onClose }: { orgName: string; onClose: (
         <label className="field">
           <span>Business name</span>
           <input value={form.companyName} onChange={(event) => update("companyName", event.target.value)} placeholder={orgName} />
+        </label>
+        <label className="field">
+          <span>TRN</span>
+          <input value={form.trn} onChange={(event) => update("trn", event.target.value)} placeholder="Tax registration number" />
+        </label>
+        <label className="field">
+          <span>IBAN</span>
+          <input value={form.iban} onChange={(event) => update("iban", event.target.value)} placeholder="AE00 0000 0000 0000 0000 000" />
         </label>
         <label className="field">
           <span>Tagline / short description</span>

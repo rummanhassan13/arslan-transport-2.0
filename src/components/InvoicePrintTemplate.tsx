@@ -1,7 +1,8 @@
 import { Printer } from "lucide-react";
 import type { Ref } from "react";
 import { StandaloneInvoiceTemplate, type StandaloneInvoiceLineItem } from "../templates/StandaloneInvoiceTemplate";
-import type { Invoice, InvoiceItem, Shipment, ShipmentDriverAssignment, ShipmentExpense } from "../types/domain";
+import { useBusinessSettingsContext } from "../contexts/BusinessSettingsContext";
+import type { Client, Invoice, InvoiceItem, Shipment, ShipmentDriverAssignment, ShipmentExpense } from "../types/domain";
 import { getExpenseClientBillAmount } from "../utils/calculations";
 
 type InvoicePrintTemplateProps = {
@@ -11,6 +12,8 @@ type InvoicePrintTemplateProps = {
   shipmentExpenses?: ShipmentExpense[];
   documentRef?: Ref<HTMLElement>;
   hideToolbar?: boolean;
+  /** Current company record; supplies the invoice name, TRN and IBAN toggle. */
+  client?: Client;
 };
 
 type DriverDetail = {
@@ -256,10 +259,18 @@ export function InvoicePrintTemplate({
   shipmentExpenses = [],
   documentRef,
   hideToolbar = false,
+  client,
 }: InvoicePrintTemplateProps) {
+  const { company } = useBusinessSettingsContext();
   const invoiceNumber = formatInvoiceNo(invoiceRecord?.invoiceNumber || shipment.invoice);
   const invoiceDate = formatTemplateDate(invoiceRecord?.issueDate || shipment.date);
-  const clientName = invoiceRecord?.clientName || snapshotText(invoiceRecord?.clientSnapshot, "name", shipment.customer);
+  const clientName =
+    client?.invoiceCompanyName?.trim() ||
+    client?.name ||
+    invoiceRecord?.clientName ||
+    snapshotText(invoiceRecord?.clientSnapshot, "name", shipment.customer);
+  const clientTrn = client?.trn?.trim() || "";
+  const businessIban = client?.showIbanOnInvoice ? company.iban?.trim() || "" : "";
   const rows = buildInvoiceRows(shipment, invoiceRecord, invoiceItems, shipmentExpenses);
 
   return (
@@ -275,7 +286,16 @@ export function InvoicePrintTemplate({
 
       <div className="invoice-scale-wrapper">
         <StandaloneInvoiceTemplate
-          data={{ invoiceNumber, invoiceDate, clientName, rows }}
+          data={{
+            invoiceNumber,
+            invoiceDate,
+            clientName,
+            clientTrn,
+            businessName: company.companyName?.trim() || "",
+            businessTrn: company.trn?.trim() || "",
+            businessIban,
+            rows,
+          }}
           documentRef={documentRef}
         />
       </div>

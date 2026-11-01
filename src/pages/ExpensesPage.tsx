@@ -180,7 +180,7 @@ export function ExpensesPage({
                     <td>{labelize(expense.category)}</td>
                     <td className="num">{money(getExpenseActualCost(expense))}</td>
                     <td className="num">{money(getExpenseClientBillAmount(expense))}</td>
-                    <td className="num">{money(expense.driverReimbursable ? getExpenseDriverPayAmount(expense) : 0)}</td>
+                    <td className="num">{money(expense.driverReimbursable ? getExpenseDriverPayAmount(expense) : (expense.driverPayAmount ?? 0))}</td>
                     <td className="num">{money(getExpenseMarkupProfit(expense))}</td>
                     <td>{paidByLabels[expense.paidBy] ?? labelize(expense.paidBy)}</td>
                     <td>
@@ -371,7 +371,7 @@ export function ExpenseDialog({
     amount: number | "";
     actualCostAmount: number | "";
     clientBillAmount: number | "";
-    // Amount added to the driver's total; 0 adds nothing. Ignored while driverPayFollowsCost is set.
+    // Amount to pay the driver, for reference; it does not change the driver total.
     driverPayAmount: number | "";
   };
 
@@ -384,7 +384,7 @@ export function ExpenseDialog({
     amount: expenseActualCost,
     actualCostAmount: expenseActualCost,
     clientBillAmount: expense ? getExpenseClientBillAmount(expense) : "",
-    driverPayAmount: expense ? (expense.driverReimbursable ? getExpenseDriverPayAmount(expense) : 0) : "",
+    driverPayAmount: expense ? (expense.driverReimbursable ? getExpenseDriverPayAmount(expense) : (expense.driverPayAmount ?? 0)) : "",
     paidBy: expense?.paidBy ?? "company",
     clientBillable: expense?.clientBillable ?? true,
     driverReimbursable: expense?.driverReimbursable ?? false,
@@ -393,8 +393,7 @@ export function ExpenseDialog({
     expenseDate: expense?.expenseDate ?? new Date().toISOString().slice(0, 10),
     notes: expense?.notes ?? "",
   });
-  // A new expense pays the driver its actual cost until the amount is edited (like Company bill follows it).
-  const [driverPayFollowsCost, setDriverPayFollowsCost] = useState(!expense);
+
   const [saving, setSaving] = useState(false);
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -425,21 +424,21 @@ export function ExpenseDialog({
       setSaving(false);
       return;
     }
-    // "Pay driver" is the amount added to the driver's total. It follows the actual cost until edited; 0 adds nothing.
-    // A shipment with no driver has nothing to pay, so the field is disabled and ignored.
-    const driverPay = driverAssignments.length ? Number(driverPayFollowsCost ? actualCost : (form.driverPayAmount === "" ? 0 : form.driverPayAmount)) : 0;
+    // "Pay driver" is recorded for reference only: it is not added to the driver rate, driver total or profit.
+    const driverPay = form.driverPayAmount === "" ? 0 : Number(form.driverPayAmount);
     if (!Number.isFinite(driverPay) || driverPay < 0) {
       setSaveMessage("Pay driver cannot be negative.");
       setSaving(false);
       return;
     }
     // With the billing options hidden, a new expense is billed to the company and put on the invoice; an edit keeps its
-    // saved billing. The driver part is driven by the Pay driver amount (to the first-leg driver unless one was chosen).
+    // saved billing. New expenses are not driver-reimbursable (Pay driver does not feed the driver total); an older
+    // expense that already was keeps that and its driver.
     const useDefaultTreatment = !SHOW_EXPENSE_BILLING_OPTIONS && !expense;
     const treatment = {
       clientBillable: useDefaultTreatment ? true : Boolean(form.clientBillable),
       includedInInvoice: useDefaultTreatment ? true : Boolean(form.includedInInvoice),
-      driverReimbursable: SHOW_EXPENSE_BILLING_OPTIONS ? Boolean(form.driverReimbursable) && driverPay > 0 : driverPay > 0,
+      driverReimbursable: Boolean(form.driverReimbursable),
     };
     const shipmentAssignmentId = treatment.driverReimbursable
       ? (SHOW_EXPENSE_BILLING_OPTIONS ? (form.shipmentAssignmentId ?? defaultAssignmentId) : (form.shipmentAssignmentId ?? primaryAssignmentId))
@@ -463,7 +462,7 @@ export function ExpenseDialog({
         amount: actualCost,
         actualCostAmount: actualCost,
         clientBillAmount: Number(form.clientBillAmount === "" ? (form.actualCostAmount === "" ? form.amount : form.actualCostAmount) : form.clientBillAmount),
-        driverPayAmount: treatment.driverReimbursable ? driverPay : null,
+        driverPayAmount: driverPay > 0 ? driverPay : null,
         notes: form.notes?.trim() || null,
         shipmentAssignmentId,
         // The approval checkbox was removed: new expenses count straight away; edits keep their state unless an approver saves them.
@@ -673,13 +672,9 @@ export function ExpenseDialog({
               type="number"
               min="0"
               step="0.01"
-              disabled={driverAssignments.length === 0}
-              title={driverAssignments.length === 0 ? "This shipment has no driver" : "Amount added to the driver's total"}
-              value={driverAssignments.length === 0 ? 0 : (driverPayFollowsCost ? (form.actualCostAmount ?? form.amount) : form.driverPayAmount)}
-              onChange={(event) => {
-                setDriverPayFollowsCost(false);
-                setForm((current) => ({ ...current, driverPayAmount: event.target.value === "" ? "" : Number(event.target.value) }));
-              }}
+              title={form.driverReimbursable ? "This older expense is added to the driver's total" : "For reference; not added to the driver total"}
+              value={form.driverPayAmount}
+              onChange={(event) => setForm((current) => ({ ...current, driverPayAmount: event.target.value === "" ? "" : Number(event.target.value) }))}
             />
           </label>
         </div>

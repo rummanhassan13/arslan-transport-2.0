@@ -13,6 +13,8 @@ export type CompanyProfileSettings = {
   address: string;
   cityCountry: string;
   logoUrl: string;
+  trn: string;
+  iban: string;
 };
 
 export type InvoiceSettings = {
@@ -37,6 +39,8 @@ const defaultBusinessSettings: BusinessSettings = {
     address: "",
     cityCountry: "",
     logoUrl: "",
+    trn: "",
+    iban: "",
   },
   invoice: {
     invoicePrefix: "AT",

@@ -266,6 +266,18 @@ describe("shipment golden scenarios", () => {
     expect(result.driverBalance).toBe(base.driverBalance);
   });
 
+  it("keeps Pay driver out of the driver total, balance and profit on a new (non-reimbursable) expense", () => {
+    const withoutPay = calculateShipmentProjection(shipment(), [expense({ clientBillable: true, includedInInvoice: true, clientBillAmount: 150 })]);
+    const withPay = calculateShipmentProjection(shipment(), [expense({ clientBillable: true, includedInInvoice: true, clientBillAmount: 150, driverPayAmount: 80 })]);
+    expect(withPay.baseDriverPayable).toBe(600);
+    expect(withPay.driverReimbursementsPayable).toBe(0);
+    expect(withPay.driverBalance).toBe(withoutPay.driverBalance);
+    expect(withPay.totalCost).toBe(withoutPay.totalCost);
+    expect(withPay.estimatedProfit).toBe(withoutPay.estimatedProfit);
+    // Company total is still the company rate plus billed expenses.
+    expect(withPay.estimatedClientRevenue).toBe(1150);
+  });
+
   it("does not authorize unapproved expenses", () => {
     const result = calculateShipmentProjection(shipment(), [expense({ approved: false, clientBillable: true })]);
     expect(result.estimatedClientRevenue).toBe(1000);

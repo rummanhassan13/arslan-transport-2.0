@@ -1,6 +1,5 @@
 import type { Ref } from "react";
 import arslanLogo from "../assets/invoice-template/image3.jpeg";
-import trnBadge from "../assets/invoice-template/image7.png";
 import signatureImage from "../assets/invoice-template/image8.jpeg";
 import stampImage from "../assets/invoice-template/image9.jpeg";
 
@@ -14,6 +13,12 @@ export type StandaloneInvoiceTemplateData = {
   invoiceNumber: string;
   invoiceDate: string;
   clientName: string;
+  /** Shown only when the company has a TRN. */
+  clientTrn?: string;
+  businessName?: string;
+  businessTrn?: string;
+  /** Shown only when the company is set to show our IBAN. */
+  businessIban?: string;
   rows: StandaloneInvoiceLineItem[];
 };
 
@@ -52,20 +57,45 @@ export function StandaloneInvoiceTemplate({ data, documentRef }: StandaloneInvoi
 
       <main className="arslan-invoice-body">
         <h2>TAX INVOICE</h2>
-        <img className="arslan-trn" src={trnBadge} alt="TRN number 104401155700003" />
 
-        <section className="arslan-meta-row" aria-label="Invoice summary">
-          <div>
-            <span>INVOICE NO:</span>
-            <strong>{data.invoiceNumber}</strong>
+        <section className="arslan-party-box" aria-label="Invoice parties">
+          <div className="arslan-party-col">
+            <p className="arslan-party-line">
+              <span>INVOICE NO:</span>
+              <strong>{data.invoiceNumber}</strong>
+            </p>
+            <div className="arslan-party-details">
+              <p className="arslan-client-name">MR/MS {data.clientName || "COMPANY"}</p>
+              {data.clientTrn && (
+                <p className="arslan-party-line">
+                  <span>TRN:</span>
+                  <strong>{data.clientTrn}</strong>
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <span>DATE:</span>
-            <strong>{data.invoiceDate}</strong>
+          <div className="arslan-party-col">
+            <p className="arslan-party-line">
+              <span>DATE:</span>
+              <strong>{data.invoiceDate}</strong>
+            </p>
+            <div className="arslan-party-details">
+              {data.businessName && <p className="arslan-client-name">{data.businessName}</p>}
+              {data.businessTrn && (
+                <p className="arslan-party-line">
+                  <span>TRN:</span>
+                  <strong>{data.businessTrn}</strong>
+                </p>
+              )}
+              {data.businessIban && (
+                <p className="arslan-party-line">
+                  <span>IBAN:</span>
+                  <strong>{data.businessIban}</strong>
+                </p>
+              )}
+            </div>
           </div>
         </section>
-
-        <p className="arslan-client-name">MR/MS {data.clientName || "COMPANY"}</p>
 
         <table className="arslan-charge-table">
           <thead>
