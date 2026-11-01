@@ -8,6 +8,8 @@ import { Modal, SelectField, SelectOrNewField, SummaryCard } from "./ui";
 import { InvoicePrintTemplate } from "./InvoicePrintTemplate";
 import { useBusinessSettings } from "../hooks/useBusinessSettings";
 
+const NEW_TRUCK_TYPE_VALUE = "__new_truck_type__";
+
 export function AddShipmentModal({
   editShipment,
   shipments,
@@ -221,6 +223,7 @@ export function AddShipmentModal({
   const [driverVehicleSaving, setDriverVehicleSaving] = useState(false);
   const [activeAssignmentIndex, setActiveAssignmentIndex] = useState<number | null>(null);
   const [truckTypeFilterActive, setTruckTypeFilterActive] = useState(false);
+  const [addingNewTruckType, setAddingNewTruckType] = useState(false);
   const [newDriverVehicle, setNewDriverVehicle] = useState<DriverVehicleBundleInput>({
     driverName: "",
     vehicleNo: "",
@@ -375,6 +378,7 @@ export function AddShipmentModal({
         return { ...current, assignments: newAssignments };
       });
       setDriverVehicleMode(false);
+      setAddingNewTruckType(false);
       setDriverVehicleMessage("Driver and vehicle saved.");
     } catch (error) {
       setDriverVehicleMessage(error instanceof Error ? error.message : "Unable to save driver and vehicle.");
@@ -913,15 +917,32 @@ export function AddShipmentModal({
             <label className="field">
               <span>Truck Type</span>
               <select
-                value={newDriverVehicle.truckType}
-                onChange={(e) => setNewDriverVehicle(curr => ({ ...curr, truckType: e.target.value }))}
+                value={addingNewTruckType ? NEW_TRUCK_TYPE_VALUE : newDriverVehicle.truckType}
+                onChange={(e) => {
+                  const isNew = e.target.value === NEW_TRUCK_TYPE_VALUE;
+                  setAddingNewTruckType(isNew);
+                  setNewDriverVehicle(curr => ({ ...curr, truckType: isNew ? "" : e.target.value }));
+                }}
               >
                 <option value="">Select truck type</option>
                 {truckTypeOptions.map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
+                <option value={NEW_TRUCK_TYPE_VALUE}>+ Add new truck type</option>
               </select>
             </label>
+            {addingNewTruckType && (
+              <label className="field">
+                <span>New Truck Type</span>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="e.g. 20 FT TRAILER"
+                  value={newDriverVehicle.truckType}
+                  onChange={(e) => setNewDriverVehicle(curr => ({ ...curr, truckType: e.target.value }))}
+                />
+              </label>
+            )}
           </div>
           {driverVehicleMessage && <p className="inline-alert">{driverVehicleMessage}</p>}
         </div>
