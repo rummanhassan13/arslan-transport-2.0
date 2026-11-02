@@ -38,6 +38,7 @@ type ShipmentRow = {
   driver_rate: number;
   status: "pending" | "in_transit" | "delivered" | "completed" | "cancelled";
   remarks: string | null;
+  waybill_number?: string | null;
   advance: number;
   gate_pass: number;
   fashah: number;
@@ -58,8 +59,38 @@ export type ShipmentListFilters = Partial<ShipmentFilters> & {
   search?: string;
 };
 
-const shipmentSelect =
+const baseShipmentSelect =
   "id, organization_id, shipment_no, invoice_reference, shipment_date, client_id, driver_id, vehicle_id, truck_type_id, loading_point, destination, company_rate, driver_rate, status, remarks, advance, gate_pass, fashah, naql, created_at, updated_at, deleted_at, clients(name), drivers(name), vehicles(vehicle_number), truck_types(name), shipment_driver_assignments(id, driver_id, vehicle_id, truck_type_id, leg_order, from_location, to_location, driver_rate, advance_paid, notes, deleted_at, drivers(name), vehicles(vehicle_number), truck_types(name))";
+const shipmentSelect = baseShipmentSelect.replace("remarks,", "remarks, waybill_number,");
+
+// Until migration 022 (waybill_number) is applied, the app keeps working without that column.
+function isMissingWaybillColumnError(error: { message?: string; details?: string; hint?: string } | null) {
+  const text = [error?.message, error?.details, error?.hint].filter(Boolean).join(" ").toLowerCase();
+  return text.includes("waybill_number");
+}
+
+async function selectWithWaybillFallback<T extends { error: { message: string } | null }>(run: (select: string) => PromiseLike<T>) {
+  const result = await run(shipmentSelect);
+  return result.error && isMissingWaybillColumnError(result.error) ? run(baseShipmentSelect) : result;
+}
+
+/** The shipment save RPCs don't know about waybill_number, so it is written separately. */
+async function saveWaybillNumber(organizationId: string, shipmentId: string, waybillNumber: string | null) {
+  const supabase = requireSupabaseClient();
+  const { error } = await supabase
+    .from("shipments")
+    .update({ waybill_number: waybillNumber })
+    .eq("id", shipmentId)
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null);
+  if (!error) return;
+  const migrationHint = isMissingWaybillColumnError(error) ? " Apply migration 022_shipment_waybill_number.sql." : "";
+  throw new Error(`Unable to save waybill number: ${error.message}${migrationHint}`);
+}
+
+function cleanWaybillNumber(value: string | null | undefined) {
+  return value?.trim() || null;
+}
 
 function relationName(relation: RelationName | undefined) {
   if (!relation) return null;
@@ -133,6 +164,7 @@ function toShipment(row: ShipmentRow, index = 0): Shipment {
     invoiceStatus: "Pending",
     clientPaymentStatus: "Pending",
     remarks: row.remarks || "",
+    waybillNumber: row.waybill_number ?? null,
     billImages: [],
     assignments: (row.shipment_driver_assignments || []).filter((a) => !a.deleted_at).map(a => ({
       id: a.id,
@@ -174,6 +206,7 @@ function toShipmentPayload(input: ShipmentInput | ShipmentUpdateInput) {
     ...(input.naql !== undefined ? { naql: input.naql } : {}),
     ...(input.status !== undefined ? { status: input.status } : {}),
     ...(input.remarks !== undefined ? { remarks: input.remarks } : {}),
+    ...(input.waybillNumber !== undefined ? { waybill_number: cleanWaybillNumber(input.waybillNumber) } : {}),
   };
 }
 
@@ -246,28 +279,33 @@ async function getCurrentUserId() {
 
 export async function listShipments(organizationId: string, filters: ShipmentListFilters = {}): Promise<Shipment[]> {
   const supabase = requireSupabaseClient();
-  let query = supabase
-    .from("shipments")
-    .select(shipmentSelect)
-    .eq("organization_id", organizationId)
-    .is("deleted_at", null)
-    .order("shipment_date", { ascending: false });
+  const buildQuery = (select: string) => {
+    let query = supabase
+      .from("shipments")
+      .select(select)
+      .eq("organization_id", organizationId)
+      .is("deleted_at", null)
+      .order("shipment_date", { ascending: false });
 
-  if (filters.dateFrom) query = query.gte("shipment_date", filters.dateFrom);
-  if (filters.dateTo) query = query.lte("shipment_date", filters.dateTo);
-  if (filters.destination) query = query.ilike("destination", `%${filters.destination}%`);
-  if (filters.search) query = query.or(`invoice_reference.ilike.%${filters.search}%,shipment_no.ilike.%${filters.search}%,loading_point.ilike.%${filters.search}%,destination.ilike.%${filters.search}%`);
+    if (filters.dateFrom) query = query.gte("shipment_date", filters.dateFrom);
+    if (filters.dateTo) query = query.lte("shipment_date", filters.dateTo);
+    if (filters.destination) query = query.ilike("destination", `%${filters.destination}%`);
+    if (filters.search) query = query.or(`invoice_reference.ilike.%${filters.search}%,shipment_no.ilike.%${filters.search}%,loading_point.ilike.%${filters.search}%,destination.ilike.%${filters.search}%`);
+    return query;
+  };
 
-  const { data, error } = await query;
+  const { data, error } = await selectWithWaybillFallback(buildQuery);
   if (error) throw new Error(`Unable to load shipments: ${error.message}`);
-  return ((data ?? []) as ShipmentRow[]).map(toShipment);
+  return ((data ?? []) as unknown as ShipmentRow[]).map(toShipment);
 }
 
 export async function getShipmentById(organizationId: string, shipmentId: string): Promise<Shipment | null> {
   const supabase = requireSupabaseClient();
-  const { data, error } = await supabase.from("shipments").select(shipmentSelect).eq("id", shipmentId).eq("organization_id", organizationId).is("deleted_at", null).maybeSingle();
+  const { data, error } = await selectWithWaybillFallback((select) =>
+    supabase.from("shipments").select(select).eq("id", shipmentId).eq("organization_id", organizationId).is("deleted_at", null).maybeSingle(),
+  );
   if (error) throw new Error(`Unable to load shipment: ${error.message}`);
-  return data ? toShipment(data as ShipmentRow) : null;
+  return data ? toShipment(data as unknown as ShipmentRow) : null;
 }
 
 export async function createShipment(organizationId: string, input: ShipmentInput): Promise<Shipment> {
@@ -280,6 +318,12 @@ export async function createShipment(organizationId: string, input: ShipmentInpu
       p_idempotency_key: `shipment-${crypto.randomUUID()}`,
     });
   const { shipmentId } = requireAutomaticInvoiceResult(data, error);
+  const waybillNumber = cleanWaybillNumber(input.waybillNumber);
+  if (waybillNumber) {
+    // The shipment and its invoice already exist; surfacing this as a save error would invite a duplicate re-save.
+    // Reloading below shows the shipment without a waybill, and it can be added by editing the shipment.
+    await saveWaybillNumber(organizationId, shipmentId, waybillNumber).catch((waybillError) => console.error(waybillError));
+  }
   const created = await getShipmentById(organizationId, shipmentId);
   if (!created) throw new Error("Shipment was committed but could not be reloaded.");
   return created;
@@ -299,6 +343,9 @@ export async function updateShipment(organizationId: string, shipmentId: string,
       p_idempotency_key: null,
     });
   requireWorkflowResult(data, error, "update");
+  if (input.waybillNumber !== undefined && cleanWaybillNumber(input.waybillNumber) !== cleanWaybillNumber(current.waybillNumber)) {
+    await saveWaybillNumber(organizationId, shipmentId, cleanWaybillNumber(input.waybillNumber));
+  }
   const updated = await getShipmentById(organizationId, shipmentId);
   if (!updated) throw new Error("Shipment was updated but could not be reloaded.");
   return updated;

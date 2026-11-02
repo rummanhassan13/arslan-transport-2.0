@@ -71,6 +71,8 @@ export type Shipment = {
   invoiceStatus: InvoiceStatus;
   clientPaymentStatus: PaymentStatus;
   remarks: string;
+  /** Optional; printed under the driver details on the invoice. */
+  waybillNumber?: string | null;
   billImages: BillImage[];
   assignments?: ShipmentDriverAssignment[];
   clientPaid?: number;
