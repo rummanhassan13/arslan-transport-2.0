@@ -219,6 +219,7 @@ export function AddShipmentModal({
   const [driverVehicleMode, setDriverVehicleMode] = useState(false);
   const [driverVehicleMessage, setDriverVehicleMessage] = useState("");
   const [driverVehicleSaving, setDriverVehicleSaving] = useState(false);
+  const [newTruckTypeMode, setNewTruckTypeMode] = useState(false);
   const [activeAssignmentIndex, setActiveAssignmentIndex] = useState<number | null>(null);
   const [truckTypeFilterActive, setTruckTypeFilterActive] = useState(false);
   const [newDriverVehicle, setNewDriverVehicle] = useState<DriverVehicleBundleInput>({
@@ -275,6 +276,7 @@ export function AddShipmentModal({
   const setDriver = (driverName: string) => {
     if (driverName === "__add_new_driver_vehicle__") {
       setDriverVehicleMode(true);
+      setNewTruckTypeMode(false);
       setDriverVehicleMessage("");
       setNewDriverVehicle({
         driverName: "",
@@ -604,6 +606,7 @@ export function AddShipmentModal({
                         if (val === "__add_new_driver_vehicle__") {
                           setActiveAssignmentIndex(index);
                           setDriverVehicleMode(true);
+                          setNewTruckTypeMode(false);
                           setDriverVehicleMessage("");
                           setNewDriverVehicle({
                             driverName: "",
@@ -851,6 +854,17 @@ export function AddShipmentModal({
           >
             + Add another driver
           </button>
+          <div className="form-grid">
+            <label className="field">
+              <span>Waybill Number</span>
+              <input
+                type="text"
+                value={form.waybillNumber ?? ""}
+                placeholder="Optional, shown on the invoice"
+                onChange={(event) => setField("waybillNumber", event.target.value)}
+              />
+            </label>
+          </div>
         </section>
         <section className="form-section">
           <h3>Remarks</h3>
@@ -912,15 +926,45 @@ export function AddShipmentModal({
             </label>
             <label className="field">
               <span>Truck Type</span>
-              <select
-                value={newDriverVehicle.truckType}
-                onChange={(e) => setNewDriverVehicle(curr => ({ ...curr, truckType: e.target.value }))}
-              >
-                <option value="">Select truck type</option>
-                {truckTypeOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
+              {newTruckTypeMode ? (
+                <div className="select-new-row">
+                  <input
+                    type="text"
+                    value={newDriverVehicle.truckType}
+                    placeholder="Enter new truck type"
+                    onChange={(e) => setNewDriverVehicle(curr => ({ ...curr, truckType: e.target.value }))}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="table-action"
+                    onClick={() => {
+                      setNewTruckTypeMode(false);
+                      setNewDriverVehicle(curr => ({ ...curr, truckType: "" }));
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={newDriverVehicle.truckType}
+                  onChange={(e) => {
+                    if (e.target.value === "__add_new__") {
+                      setNewTruckTypeMode(true);
+                      setNewDriverVehicle(curr => ({ ...curr, truckType: "" }));
+                      return;
+                    }
+                    setNewDriverVehicle(curr => ({ ...curr, truckType: e.target.value }));
+                  }}
+                >
+                  <option value="">Select truck type</option>
+                  <option value="__add_new__">Add new...</option>
+                  {truckTypeOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              )}
             </label>
           </div>
           {driverVehicleMessage && <p className="inline-alert">{driverVehicleMessage}</p>}

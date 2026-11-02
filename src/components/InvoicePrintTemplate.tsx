@@ -128,10 +128,11 @@ function formatDriverDetails(details: DriverDetail[]) {
   }).join("\n\n");
 }
 
-function withDriverDetails(description: string, details: DriverDetail[]) {
-  const baseDescription = description.trim();
-  if (!details.length || hasDriverDetails(baseDescription)) return baseDescription;
-  return `${baseDescription}\n\n${formatDriverDetails(details)}`;
+function withDriverDetails(description: string, details: DriverDetail[], waybillNumber = "") {
+  let result = description.trim();
+  if (details.length && !hasDriverDetails(result)) result = `${result}\n\n${formatDriverDetails(details)}`;
+  if (waybillNumber && !/waybill/i.test(result)) result = `${result}\nWAYBILL NO: ${waybillNumber}`;
+  return result;
 }
 
 function expenseDescription(item: InvoiceItem) {
@@ -142,7 +143,7 @@ function expenseDescription(item: InvoiceItem) {
   return EXPENSE_LABELS[normalizedCategory] ?? EXPENSE_LABELS[normalizedDescription] ?? normalizeDescription(description);
 }
 
-function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceItems: InvoiceItem[] = [], shipmentExpenses: ShipmentExpense[] = []): StandaloneInvoiceLineItem[] {
+function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceItems: InvoiceItem[] = [], shipmentExpenses: ShipmentExpense[] = [], waybillNumber = ""): StandaloneInvoiceLineItem[] {
   const loadingPoint = snapshotText(invoiceRecord?.shipmentSnapshot, "loadingPoint", shipment.loadingPoint);
   const destination = invoiceRecord?.destination || snapshotText(invoiceRecord?.shipmentSnapshot, "destination", shipment.destination);
   const transportAmount = invoiceRecord?.subtotal ?? shipment.companyRate;
@@ -160,7 +161,7 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
     if (transportItems.length > 0) {
       transportItems.forEach(item => {
         resolvedRows.push({
-          description: withDriverDetails(item.description || defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord, item)),
+          description: withDriverDetails(item.description || defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord, item), waybillNumber),
           unitPrice: item.unitPrice || item.amount,
           amount: item.amount,
         });
@@ -168,7 +169,7 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
     } else {
       // Legacy fallback
       resolvedRows.push({
-        description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord)),
+        description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord), waybillNumber),
         unitPrice: transportAmount,
         amount: transportAmount,
       });
@@ -176,7 +177,7 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
   } else {
     // Dynamic generation when no invoiceRecord exists
     resolvedRows.push({
-      description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment)),
+      description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment), waybillNumber),
       unitPrice: transportAmount,
       amount: transportAmount,
     });
@@ -271,7 +272,7 @@ export function InvoicePrintTemplate({
     snapshotText(invoiceRecord?.clientSnapshot, "name", shipment.customer);
   const clientTrn = client?.trn?.trim() || "";
   const businessIban = client?.showIbanOnInvoice ? company.iban?.trim() || "" : "";
-  const rows = buildInvoiceRows(shipment, invoiceRecord, invoiceItems, shipmentExpenses);
+  const rows = buildInvoiceRows(shipment, invoiceRecord, invoiceItems, shipmentExpenses, shipment.waybillNumber?.trim() || "");
 
   return (
     <div className="invoice-print-preview">
