@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Client, Driver, TruckType } from "../types/domain";
+import type { Client, Driver, Shipment, TruckType, Vehicle } from "../types/domain";
 import { AddShipmentModal } from "./modals";
 import { SelectOrNewField } from "./ui";
 
@@ -13,6 +13,9 @@ vi.mock("../hooks/useBusinessSettings", () => ({
 }));
 
 afterEach(cleanup);
+
+// jsdom has no layout, so it lacks scrollIntoView (used to reveal save errors).
+if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = vi.fn();
 
 const optionValues = (select: HTMLSelectElement) =>
   Array.from(select.options).map((option) => option.value);
@@ -66,8 +69,9 @@ describe("AddShipmentModal", () => {
     expect(optionValues(driverSelect)).toEqual([
       "",
       "__add_new_driver_vehicle__",
-      "Saved Driver",
+      "id:driver-1",
     ]);
+    expect(Array.from(driverSelect.options).map((option) => option.text)[2]).toBe("Saved Driver");
 
     fireEvent.change(driverSelect, { target: { value: "__add_new_driver_vehicle__" } });
 
@@ -125,7 +129,109 @@ describe("AddShipmentModal", () => {
     fireEvent.change(screen.getByLabelText("Waybill Number"), { target: { value: "WB-555" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Shipment" }));
 
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ waybillNumber: "WB-555" })));
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ waybillNumber: "WB-555" }), { invoiceDate: null }),
+    );
+  });
+
+  it("tells drivers with the same name apart and saves the one picked", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AddShipmentModal
+        shipments={[]}
+        masterData={{
+          clients: [{ id: "client-1", name: "Saved Client" } as Client],
+          drivers: [
+            { id: "driver-a", name: "ARIF KHAN", phone: "055-1231699" } as Driver,
+            { id: "driver-b", name: "ARIF KHAN", phone: "056-7648947" } as Driver,
+          ],
+          vehicles: [
+            { id: "vehicle-a", vehicleNumber: "70129 DXB", driverId: "driver-a" } as Vehicle,
+            { id: "vehicle-b", vehicleNumber: "85434 DXB", driverId: "driver-b" } as Vehicle,
+          ],
+          truckTypes: [],
+        }}
+        routeOptions={{ loadingPoints: ["Dubai"], destinations: ["Riyadh"] }}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    const driverSelect = screen.getByLabelText("Driver Name") as HTMLSelectElement;
+    expect(Array.from(driverSelect.options).map((option) => option.text).slice(2)).toEqual([
+      "ARIF KHAN · 70129 DXB",
+      "ARIF KHAN · 85434 DXB",
+    ]);
+
+    fireEvent.change(screen.getByLabelText("Company"), { target: { value: "Saved Client" } });
+    fireEvent.change(screen.getByLabelText("Loading Point"), { target: { value: "Dubai" } });
+    fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Riyadh" } });
+    fireEvent.change(driverSelect, { target: { value: "id:driver-b" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Shipment" }));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ driverId: "driver-b", vehicleNo: "85434 DXB" }),
+        { invoiceDate: null },
+      ),
+    );
+  });
+
+  it("passes a changed invoice date and refuses to clear an existing one", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const editShipment = {
+      id: "shipment-1",
+      date: "2026-11-03",
+      shipmentDate: "2026-11-03",
+      invoice: "1001",
+      customer: "Saved Client",
+      loadingPoint: "Dubai",
+      destination: "Riyadh",
+      driverName: "",
+      vehicleNo: "",
+      truckType: "",
+      cellNo: "",
+      remarks: "",
+      companyRate: 1000,
+      driverRate: 0,
+      advance: 0,
+      gatePass: 0,
+      fashah: 0,
+      naql: 0,
+      assignments: [],
+    } as unknown as Shipment;
+    render(
+      <AddShipmentModal
+        editShipment={editShipment}
+        invoiceDate="2026-11-03"
+        shipments={[editShipment]}
+        masterData={{ clients: [{ id: "client-1", name: "Saved Client" } as Client], drivers: [], vehicles: [], truckTypes: [] }}
+        routeOptions={{ loadingPoints: ["Dubai"], destinations: ["Riyadh"] }}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    const invoiceDate = screen.getByLabelText("Invoice Date") as HTMLInputElement;
+    expect(invoiceDate.value).toBe("2026-11-03");
+
+    fireEvent.change(invoiceDate, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    expect(await screen.findByText(/Invoice Date cannot be empty/)).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.change(invoiceDate, { target: { value: "2026-10-20" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ date: "2026-11-03" }), { invoiceDate: "2026-10-20" }),
+    );
+  });
+
+  it("disables the invoice date when the shipment has no invoice yet", () => {
+    const editShipment = { id: "s-2", date: "2026-11-03", invoice: "1002", customer: "", loadingPoint: "", destination: "", driverName: "", vehicleNo: "", truckType: "", cellNo: "", remarks: "", assignments: [] } as unknown as Shipment;
+    render(<AddShipmentModal editShipment={editShipment} invoiceDate={null} shipments={[]} onClose={vi.fn()} onSave={vi.fn()} />);
+
+    expect((screen.getByLabelText("Invoice Date") as HTMLInputElement).disabled).toBe(true);
   });
 });
 

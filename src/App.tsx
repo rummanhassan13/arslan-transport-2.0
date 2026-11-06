@@ -32,7 +32,7 @@ import type { RouteLocationType } from "./services/routeLocationService";
 import { buildStats, calculateShipmentFinancials } from "./utils/calculations";
 import { deriveDisplayInvoiceStatus, deriveClientPaymentStatus } from "./utils/statusDerivation";
 import { planDeliveryTransitions, planDriverSettlement, planInTransitTransition } from "./utils/paymentStatusActions";
-import { money } from "./utils/formatters";
+import { formatDate, money } from "./utils/formatters";
 import {
   calculateInvoiceBalance,
   calculateShipmentProjection,
@@ -196,8 +196,12 @@ function DemoApp() {
     createInvoiceForShipment,
     refreshInvoices,
     updateInvoiceStatus,
+    updateInvoiceDate,
     deleteInvoice,
   } = useInvoices(baseShipments, allExpenses);
+  // The invoice whose date the shipment form edits: the live one, never a cancelled copy.
+  const activeInvoiceForShipment = (shipmentId: string) =>
+    invoices.find((invoice) => invoice.shipmentId === shipmentId && invoice.status !== "cancelled");
   const {
     clientPayments,
     driverPayments,
@@ -321,12 +325,31 @@ function DemoApp() {
   const stats = useMemo(() => buildStats(displayShipments), [displayShipments]);
 
 
-  const saveShipment = async (input: ShipmentInput) => {
+  // The shipment is saved first; the invoice date is a separate write, so a failure there
+  // is reported on its own and never undoes or blocks the shipment save.
+  const applyInvoiceDate = async (invoice: Invoice | undefined, invoiceDate: string | null) => {
+    if (!invoiceDate || !invoice || invoice.issueDate === invoiceDate) return "";
+    try {
+      await updateInvoiceDate(invoice, invoiceDate);
+      return ` Invoice date set to ${formatDate(invoiceDate)}.`;
+    } catch (dateError) {
+      const reason = dateError instanceof Error ? dateError.message : "Unknown error.";
+      // A row blocked by invoice permissions comes back as "no rows", so name the likely cause.
+      const permissionHint = /coerce|0 rows|permission|policy/i.test(reason)
+        ? " Only owners, admins and accountants can change invoices."
+        : "";
+      return ` The invoice date could not be changed: ${reason}${permissionHint}`;
+    }
+  };
+
+  const saveShipment = async (input: ShipmentInput, options: { invoiceDate: string | null } = { invoiceDate: null }) => {
     try {
       const client =
         clients.find((item) => item.name === input.customer) ||
         (input.customer.trim() ? await createClient({ name: input.customer.trim(), status: "active" }) : null);
+      // Prefer the exact driver picked in the form: names can repeat.
       const driver =
+        (input.driverId ? drivers.find((item) => item.id === input.driverId && item.name === input.driverName) : undefined) ||
         drivers.find((item) => item.name === input.driverName) ||
         (input.driverName.trim()
           ? await createDriver({ name: input.driverName.trim(), phone: input.cellNo?.trim() || null, status: "active" })
@@ -388,8 +411,9 @@ function DemoApp() {
         const editedShipment = displayShipments.find((item) => item.id === editShipmentId);
         await updateShipment(editShipmentId, preparedInput);
         const statusNote = await startTransitIfAssigned(editShipmentId, editedShipment?.status, hasAssignedDriver(preparedInput));
+        const dateNote = await applyInvoiceDate(activeInvoiceForShipment(editShipmentId), options.invoiceDate);
         setEditShipmentId(null);
-        setToast(`Shipment updated.${statusNote}`);
+        setToast(`Shipment updated.${statusNote}${dateNote}`);
       } else {
         const createdShipment = await createShipment(preparedInput);
         const statusNote = await startTransitIfAssigned(createdShipment.id, createdShipment.status, hasAssignedDriver(preparedInput));
@@ -430,8 +454,9 @@ function DemoApp() {
         // In Supabase mode the create RPC writes initial advances to driver_payments,
         // so the local ledger must be reloaded for the advance to show on the shipment.
         await refreshPayments().catch(() => undefined);
+        const dateNote = await applyInvoiceDate(generatedInvoice, options.invoiceDate);
         setShipmentDialog(false);
-        setToast(`Shipment saved and invoice ${generatedInvoice.invoiceNumber} generated automatically.${statusNote}`);
+        setToast(`Shipment saved and invoice ${generatedInvoice.invoiceNumber} generated automatically.${statusNote}${dateNote}`);
       }
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Unable to save shipment.");
@@ -745,7 +770,9 @@ function DemoApp() {
 
       {(shipmentDialog || editShipmentTarget) && (
         <AddShipmentModal
+          key={editShipmentTarget?.id ?? "new"}
           editShipment={editShipmentTarget || undefined}
+          invoiceDate={editShipmentTarget ? activeInvoiceForShipment(editShipmentTarget.id)?.issueDate ?? null : undefined}
           shipments={displayShipments}
           masterData={{ clients, drivers, vehicles, truckTypes }}
           routeOptions={{ loadingPoints, destinations }}

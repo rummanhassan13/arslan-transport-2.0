@@ -191,7 +191,7 @@ function toShipmentPayload(input: ShipmentInput | ShipmentUpdateInput) {
   return {
     ...(input.shipmentNo !== undefined ? { shipment_no: input.shipmentNo } : {}),
     ...(input.invoice !== undefined || input.invoiceReference !== undefined ? { invoice_reference: input.invoiceReference ?? input.invoice } : {}),
-    ...(input.date !== undefined || input.shipmentDate !== undefined ? { shipment_date: input.shipmentDate ?? input.date } : {}),
+    ...(input.date !== undefined || input.shipmentDate !== undefined ? { shipment_date: input.date ?? input.shipmentDate } : {}),
     ...(input.clientId !== undefined ? { client_id: input.clientId } : {}),
     ...(input.driverId !== undefined ? { driver_id: input.driverId } : {}),
     ...(input.vehicleId !== undefined ? { vehicle_id: input.vehicleId } : {}),
@@ -214,7 +214,9 @@ function toWorkflowShipment(input: ShipmentInput) {
   return {
     shipment_no: input.shipmentNo || input.invoice || null,
     customer_reference: input.invoiceReference && input.invoiceReference !== input.invoice ? input.invoiceReference : null,
-    shipment_date: input.shipmentDate || input.date,
+    // `date` is the field the shipment form edits; `shipmentDate` is a read-only copy loaded
+    // from the database, so it must not win over a date the user just changed.
+    shipment_date: input.date || input.shipmentDate,
     client_id: input.clientId ?? null,
     driver_id: input.driverId ?? null,
     vehicle_id: input.vehicleId ?? null,

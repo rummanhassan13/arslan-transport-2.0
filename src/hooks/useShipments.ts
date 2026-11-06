@@ -147,6 +147,8 @@ export function useShipments() {
           const shipmentToUpdate = {
             ...shipment,
             ...sanitizedInput,
+            // Keep the read-only copy in step with the edited date (the Dashboard reads it).
+            ...(sanitizedInput.date ? { shipmentDate: sanitizedInput.date } : {}),
             assignments: sanitizedInput.assignments
               ? sanitizedInput.assignments.map((a, i) => ({ ...a, id: a.id || `assign-${Date.now()}-${i}` }))
               : shipment.assignments,

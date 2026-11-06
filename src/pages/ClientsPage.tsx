@@ -8,6 +8,7 @@ import { formatDate, money } from "../utils/formatters";
 import { sum } from "../utils/calculations";
 import { PageTitle, StatusBadge, EmptyState, Modal } from "../components/ui";
 import { canManageClients } from "../utils/permissions";
+import { COMPANY_COLOR_PALETTE, companyColor, companyColorStyle, isHexColor } from "../utils/companyColors";
 import { ShipmentAttachmentReadOnlyList } from "../components/shipments/ShipmentAttachmentReadOnlyList";
 import { signedClientPaymentAmount, sumMoney } from "../domain/financials";
 
@@ -234,11 +235,12 @@ function ClientDialog({
     invoiceCompanyName: client?.invoiceCompanyName ?? "",
     trn: client?.trn ?? "",
     showIbanOnInvoice: client?.showIbanOnInvoice ?? false,
+    rowColor: client?.rowColor ?? null,
     status: client?.status ?? "active",
   });
   const [saving, setSaving] = useState(false);
 
-  const update = (key: keyof ClientInput, value: string | boolean) => {
+  const update = (key: keyof ClientInput, value: string | boolean | null) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
@@ -257,6 +259,7 @@ function ClientDialog({
         invoiceCompanyName: form.invoiceCompanyName?.trim() || null,
         trn: form.trn?.trim() || null,
         showIbanOnInvoice: Boolean(form.showIbanOnInvoice),
+        rowColor: isHexColor(form.rowColor) ? form.rowColor.toUpperCase() : null,
       });
     } finally {
       setSaving(false);
@@ -339,6 +342,42 @@ function ClientDialog({
               />
               <span>Show our IBAN on this company&apos;s invoices</span>
             </label>
+          </div>
+        </section>
+        <section className="form-section">
+          <div className="form-section-header">
+            <h3>Register Colour</h3>
+            <p>Tints this company&apos;s rows in the shipment register so they stand out from other companies.</p>
+          </div>
+          <div className="company-color-picker" role="group" aria-label="Register colour">
+            <button
+              type="button"
+              className="company-color-auto"
+              aria-pressed={!isHexColor(form.rowColor)}
+              onClick={() => update("rowColor", null)}
+              title="Pick a colour automatically"
+            >
+              <span className="company-swatch" style={companyColorStyle(companyColor({ id: client?.id ?? "", name: form.name, rowColor: null }, form.name))} /> Automatic
+            </button>
+            {COMPANY_COLOR_PALETTE.map((color) => (
+              <button
+                key={color}
+                type="button"
+                className="company-color-option"
+                style={companyColorStyle(color)}
+                aria-pressed={form.rowColor?.toUpperCase() === color}
+                aria-label={`Use colour ${color}`}
+                onClick={() => update("rowColor", color)}
+              />
+            ))}
+            <input
+              type="color"
+              className="company-color-custom"
+              value={isHexColor(form.rowColor) ? form.rowColor : "#2563EB"}
+              onChange={(event) => update("rowColor", event.target.value)}
+              aria-label="Custom colour"
+              title="Custom colour"
+            />
           </div>
         </section>
       </form>

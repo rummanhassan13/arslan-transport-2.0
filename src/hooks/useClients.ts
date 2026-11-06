@@ -101,6 +101,7 @@ export function useClients(shipments: Shipment[] = []) {
           invoiceCompanyName: input.invoiceCompanyName ?? null,
           trn: input.trn ?? null,
           showIbanOnInvoice: input.showIbanOnInvoice ?? false,
+          rowColor: input.rowColor ?? null,
           status: input.status ?? "active",
           createdAt: now,
           updatedAt: now,
@@ -137,6 +138,7 @@ export function useClients(shipments: Shipment[] = []) {
             invoiceCompanyName: input.invoiceCompanyName !== undefined ? input.invoiceCompanyName : client.invoiceCompanyName,
             trn: input.trn !== undefined ? input.trn : client.trn,
             showIbanOnInvoice: input.showIbanOnInvoice ?? client.showIbanOnInvoice,
+            rowColor: input.rowColor !== undefined ? input.rowColor : client.rowColor ?? null,
             status: input.status ?? client.status,
             updatedAt: timestamp(),
           };

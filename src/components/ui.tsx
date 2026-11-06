@@ -155,12 +155,15 @@ export function Modal({
   children,
   footer,
   size = "medium",
+  className,
 }: {
   title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
   size?: ModalSize;
+  /** Extra class on the panel, for modals that need their own layout. */
+  className?: string;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -209,7 +212,7 @@ export function Modal({
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className={`modal-panel modal-${size}`}
+        className={`modal-panel modal-${size}${className ? ` ${className}` : ""}`}
         onClick={(event) => event.stopPropagation()}
         ref={panelRef}
         role="dialog"

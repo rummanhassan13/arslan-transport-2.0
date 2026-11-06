@@ -18,8 +18,14 @@ export function AddShipmentModal({
   onCreateClient,
   onClose,
   onSave,
+  invoiceDate,
 }: {
   editShipment?: Shipment;
+  /**
+   * Issue date of the shipment's current invoice (YYYY-MM-DD). `null` when editing a
+   * shipment that has no invoice yet; ignored when adding a new shipment.
+   */
+  invoiceDate?: string | null;
   shipments: Shipment[];
   masterData?: {
     clients: Client[];
@@ -35,9 +41,21 @@ export function AddShipmentModal({
   onCreateDriverVehicleBundle?: (input: DriverVehicleBundleInput) => Promise<DriverVehicleBundleResult>;
   onCreateClient?: (input: ClientInput) => Promise<Client>;
   onClose: () => void;
-  onSave: (input: ShipmentInput) => Promise<void> | void;
+  /**
+   * `invoiceDate` is the date to print on the invoice: a YYYY-MM-DD string, or `null`
+   * to leave it as it is (a new shipment's invoice then keeps today's date).
+   */
+  onSave: (input: ShipmentInput, options: { invoiceDate: string | null }) => Promise<void> | void;
 }) {
   const { settings } = useBusinessSettings();
+  const hasInvoiceDate = !editShipment || Boolean(invoiceDate);
+  const [invoiceDateDraft, setInvoiceDateDraft] = useState(() => (editShipment ? invoiceDate ?? "" : ""));
+  const invoiceDateTouched = useRef(false);
+  // The form can open (e.g. restored after a page reload) before invoices have loaded;
+  // fill the field once the date arrives, unless the user already typed one.
+  useEffect(() => {
+    if (editShipment && invoiceDate && !invoiceDateTouched.current) setInvoiceDateDraft(invoiceDate);
+  }, [editShipment, invoiceDate]);
 
   const nextInvoiceNumber = useMemo(() => {
     const startingStr = (settings?.invoice?.startingInvoiceNumber || "1001").trim();
@@ -273,6 +291,34 @@ export function AddShipmentModal({
       null
     );
   };
+  // Driver dropdown entries. Saved drivers are keyed by id so two drivers with the same
+  // name stay separate; a repeated name shows its truck number (or phone) to tell them apart.
+  type DriverChoice = { value: string; label: string; name: string; driver?: Driver };
+  const nameKey = (name: string) => name.trim().replace(/\s+/g, " ").toUpperCase();
+  const nameCounts = new Map<string, number>();
+  (masterData?.drivers ?? []).forEach((driver) => nameCounts.set(nameKey(driver.name), (nameCounts.get(nameKey(driver.name)) ?? 0) + 1));
+  const driverChoice = (driver: Driver): DriverChoice => {
+    const repeated = (nameCounts.get(nameKey(driver.name)) ?? 0) > 1;
+    const hint = repeated ? findVehicleForDriver(driver)?.vehicleNumber || driver.phone || "" : "";
+    return { value: `id:${driver.id}`, label: hint ? `${driver.name} · ${hint}` : driver.name, name: driver.name, driver };
+  };
+  const driverChoices: DriverChoice[] = masterData?.drivers.length
+    ? filteredDrivers.map(driverChoice)
+    : driverOptions.map((name) => ({ value: `name:${name}`, label: name, name }));
+  const driverChoiceValue = (assignment: { driverId?: string | null; driverName: string }) => {
+    if (assignment.driverId && masterData?.drivers.some((driver) => driver.id === assignment.driverId)) return `id:${assignment.driverId}`;
+    if (!assignment.driverName) return "";
+    const byName = masterData?.drivers.find((driver) => driver.name === assignment.driverName);
+    return byName ? `id:${byName.id}` : `name:${assignment.driverName}`;
+  };
+  // Keep the current driver selectable even when the truck-type filter hides it.
+  const driverChoicesFor = (assignment: { driverId?: string | null; driverName: string }) => {
+    const current = driverChoiceValue(assignment);
+    if (!current || driverChoices.some((choice) => choice.value === current)) return driverChoices;
+    const savedDriver = current.startsWith("id:") ? masterData?.drivers.find((driver) => `id:${driver.id}` === current) : undefined;
+    const extra = savedDriver ? driverChoice(savedDriver) : { value: current, label: assignment.driverName, name: assignment.driverName };
+    return [extra, ...driverChoices];
+  };
   const setDriver = (driverName: string) => {
     if (driverName === "__add_new_driver_vehicle__") {
       setDriverVehicleMode(true);
@@ -394,6 +440,11 @@ export function AddShipmentModal({
       setSaveError(`Please fill in ${missing.join(", ")} before saving.`);
       return;
     }
+    // An existing invoice always has a date, so it can be changed but not cleared.
+    if (editShipment && invoiceDate && !invoiceDateDraft) {
+      setSaveError("Invoice Date cannot be empty. Pick the date to print on the invoice.");
+      return;
+    }
     // Drop extra driver rows left empty, renumber legs, and default each leg's
     // From/To to the trip's Loading Point/Destination.
     const assignments = (form.assignments ?? [])
@@ -434,7 +485,9 @@ export function AddShipmentModal({
         fashah: form.fashah === "" ? 0 : Number(form.fashah),
         naql: form.naql === "" ? 0 : Number(form.naql),
       };
-      await onSave(sanitizedForm);
+      const changedInvoiceDate =
+        hasInvoiceDate && invoiceDateDraft && invoiceDateDraft !== (invoiceDate ?? "") ? invoiceDateDraft : null;
+      await onSave(sanitizedForm, { invoiceDate: changedInvoiceDate });
     } finally {
       setSaving(false);
     }
@@ -600,10 +653,10 @@ export function AddShipmentModal({
                   <label className="field">
                     <span>Driver Name</span>
                     <select
-                      value={assignment.driverName}
+                      value={driverChoiceValue(assignment)}
                       onChange={(event) => {
-                        const val = event.target.value;
-                        if (val === "__add_new_driver_vehicle__") {
+                        const choiceValue = event.target.value;
+                        if (choiceValue === "__add_new_driver_vehicle__") {
                           setActiveAssignmentIndex(index);
                           setDriverVehicleMode(true);
                           setNewTruckTypeMode(false);
@@ -616,7 +669,10 @@ export function AddShipmentModal({
                           });
                           return;
                         }
-                        const matchedDriver = masterData?.drivers.find((d) => d.name === val);
+                        const choice = driverChoicesFor(assignment).find((item) => item.value === choiceValue);
+                        const val = choice?.name ?? "";
+                        // Pick the exact driver chosen: names can repeat (two drivers called ARIF KHAN).
+                        const matchedDriver = choice?.driver ?? (val ? masterData?.drivers.find((d) => d.name === val) : undefined);
                         const connectedVehicle = findVehicleForDriver(matchedDriver);
                         const savedDriver = shipments.find((s) => s.driverName === val);
                         setForm((current) => {
@@ -650,8 +706,8 @@ export function AddShipmentModal({
                     >
                       <option value="">Select driver</option>
                       <option value="__add_new_driver_vehicle__">Add new...</option>
-                      {driverOptions.map((option) => (
-                        <option key={option} value={option}>{option}</option>
+                      {driverChoicesFor(assignment).map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
                   </label>
@@ -863,6 +919,28 @@ export function AddShipmentModal({
                 placeholder="Optional, shown on the invoice"
                 onChange={(event) => setField("waybillNumber", event.target.value)}
               />
+            </label>
+            <label className="field">
+              <span>Invoice Date</span>
+              <input
+                type="date"
+                aria-label="Invoice Date"
+                aria-describedby="invoice-date-hint"
+                value={invoiceDateDraft}
+                disabled={!hasInvoiceDate}
+                title={hasInvoiceDate ? "Date printed on the invoice" : "Generate the invoice first to set its date"}
+                onChange={(event) => {
+                  invoiceDateTouched.current = true;
+                  setInvoiceDateDraft(event.target.value);
+                }}
+              />
+              <small id="invoice-date-hint" className="text-[11px] text-ink-3">
+                {!hasInvoiceDate
+                  ? "No invoice yet. Generate the invoice to set its date."
+                  : editShipment
+                    ? "Printed on the invoice. Due date is not changed."
+                    : "Leave empty to use today's date."}
+              </small>
             </label>
           </div>
         </section>
@@ -1387,8 +1465,8 @@ export function InvoicePreview({
 }) {
   const invoiceNumber = invoiceRecord?.invoiceNumber || shipment.invoice;
   return (
-    <Modal title={`Invoice Preview - ${invoiceNumber}`} onClose={onClose} size="wide">
-      <InvoicePrintTemplate shipment={shipment} invoiceRecord={invoiceRecord} invoiceItems={invoiceItems} shipmentExpenses={shipmentExpenses} client={client} />
+    <Modal title={`Invoice Preview - ${invoiceNumber}`} onClose={onClose} size="wide" className="modal-invoice-preview">
+      <InvoicePrintTemplate shipment={shipment} invoiceRecord={invoiceRecord} invoiceItems={invoiceItems} shipmentExpenses={shipmentExpenses} client={client} fitToContainer />
     </Modal>
   );
 }

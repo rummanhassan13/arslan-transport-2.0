@@ -1,4 +1,5 @@
 import { requireSupabaseClient } from "../lib/supabase";
+import { masterDataError } from "./masterDataErrors";
 import type { Vehicle, VehicleInput, VehicleUpdateInput } from "../types/domain";
 
 type VehicleRelation = { name: string | null } | { name: string | null }[] | null;
@@ -89,7 +90,7 @@ export async function createVehicle(organizationId: string, input: VehicleInput)
     .select(vehicleSelect)
     .single();
 
-  if (error) throw new Error(`Unable to create vehicle: ${error.message}`);
+  if (error) throw masterDataError("create", "vehicle", error);
   return toVehicle(data as VehicleRow);
 }
 
@@ -109,7 +110,7 @@ export async function updateVehicle(organizationId: string, vehicleId: string, i
     .select(vehicleSelect)
     .single();
 
-  if (error) throw new Error(`Unable to update vehicle: ${error.message}`);
+  if (error) throw masterDataError("update", "vehicle", error);
   return toVehicle(data as VehicleRow);
 }
 

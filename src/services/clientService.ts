@@ -13,6 +13,7 @@ type ClientRow = {
   invoice_company_name: string | null;
   trn: string | null;
   show_iban_on_invoice: boolean;
+  row_color?: string | null;
   status: "active" | "inactive";
   created_at: string;
   updated_at: string;
@@ -22,15 +23,31 @@ type ClientRow = {
 const baseClientSelect = "id, organization_id, name, contact_person, phone, email, address, notes, status, created_at, updated_at, deleted_at";
 const clientSelect = baseClientSelect.replace("notes,", "notes, invoice_company_name, trn, show_iban_on_invoice,");
 
-// Until migration 020 (invoice_company_name, trn, show_iban_on_invoice) is applied, the app keeps working without those columns.
+const colorClientSelect = clientSelect.replace("show_iban_on_invoice,", "show_iban_on_invoice, row_color,");
+
+// Until migrations 023 (row_color) and 020 (invoice_company_name, trn, show_iban_on_invoice)
+// are applied, the app keeps working without those columns: each tier drops one set.
 const CLIENT_TIERS = [
-  { select: clientSelect, invoiceDetails: true },
-  { select: baseClientSelect, invoiceDetails: false },
+  { select: colorClientSelect, invoiceDetails: true, rowColor: true },
+  { select: clientSelect, invoiceDetails: true, rowColor: false },
+  { select: baseClientSelect, invoiceDetails: false, rowColor: false },
 ] as const;
 
-function isMissingInvoiceDetailsColumnError(error: { message?: string; details?: string; hint?: string } | null) {
+function isMissingOptionalColumnError(error: { message?: string; details?: string; hint?: string } | null) {
   const text = [error?.message, error?.details, error?.hint].filter(Boolean).join(" ").toLowerCase();
-  return text.includes("invoice_company_name") || text.includes("show_iban_on_invoice") || /\btrn\b/.test(text);
+  return text.includes("row_color") || text.includes("invoice_company_name") || text.includes("show_iban_on_invoice") || /\btrn\b/.test(text);
+}
+
+/** Runs the request with the fullest column set the database supports. */
+async function withClientTiers<T extends { error: { message?: string; details?: string; hint?: string } | null }>(
+  run: (tier: (typeof CLIENT_TIERS)[number]) => PromiseLike<T>,
+) {
+  let result = await run(CLIENT_TIERS[0]);
+  for (const tier of CLIENT_TIERS.slice(1)) {
+    if (!result.error || !isMissingOptionalColumnError(result.error)) break;
+    result = await run(tier);
+  }
+  return result;
 }
 
 function toClient(row: ClientRow): Client {
@@ -46,6 +63,7 @@ function toClient(row: ClientRow): Client {
     invoiceCompanyName: row.invoice_company_name ?? null,
     trn: row.trn ?? null,
     showIbanOnInvoice: row.show_iban_on_invoice ?? false,
+    rowColor: row.row_color ?? null,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -53,7 +71,7 @@ function toClient(row: ClientRow): Client {
   };
 }
 
-function toClientPayload(input: ClientInput | ClientUpdateInput, includeInvoiceDetails = true) {
+function toClientPayload(input: ClientInput | ClientUpdateInput, includeInvoiceDetails = true, includeRowColor = true) {
   return {
     ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.contactPerson !== undefined ? { contact_person: input.contactPerson } : {}),
@@ -64,6 +82,7 @@ function toClientPayload(input: ClientInput | ClientUpdateInput, includeInvoiceD
     ...(includeInvoiceDetails && input.invoiceCompanyName !== undefined ? { invoice_company_name: input.invoiceCompanyName } : {}),
     ...(includeInvoiceDetails && input.trn !== undefined ? { trn: input.trn } : {}),
     ...(includeInvoiceDetails && input.showIbanOnInvoice !== undefined ? { show_iban_on_invoice: input.showIbanOnInvoice } : {}),
+    ...(includeRowColor && input.rowColor !== undefined ? { row_color: input.rowColor } : {}),
     ...(input.status !== undefined ? { status: input.status } : {}),
   };
 }
@@ -85,8 +104,7 @@ export async function listClients(organizationId: string): Promise<Client[]> {
     .is("deleted_at", null)
     .order("name", { ascending: true });
 
-  let { data, error } = await query(CLIENT_TIERS[0].select);
-  if (error && isMissingInvoiceDetailsColumnError(error)) ({ data, error } = await query(CLIENT_TIERS[1].select));
+  const { data, error } = await withClientTiers((tier) => query(tier.select));
 
   if (error) throw new Error(`Unable to load companies: ${error.message}`);
   return ((data ?? []) as unknown as ClientRow[]).map(toClient);
@@ -99,7 +117,7 @@ export async function createClient(organizationId: string, input: ClientInput): 
   const insertWith = (tier: (typeof CLIENT_TIERS)[number]) => supabase
     .from("clients")
     .insert({
-      ...toClientPayload({ ...input, status: input.status ?? "active" }, tier.invoiceDetails),
+      ...toClientPayload({ ...input, status: input.status ?? "active" }, tier.invoiceDetails, tier.rowColor),
       organization_id: organizationId,
       created_by: userId,
       updated_by: userId,
@@ -107,8 +125,7 @@ export async function createClient(organizationId: string, input: ClientInput): 
     .select(tier.select)
     .single();
 
-  let { data, error } = await insertWith(CLIENT_TIERS[0]);
-  if (error && isMissingInvoiceDetailsColumnError(error)) ({ data, error } = await insertWith(CLIENT_TIERS[1]));
+  const { data, error } = await withClientTiers(insertWith);
 
   if (error) throw new Error(`Unable to create company: ${error.message}`);
   return toClient(data as unknown as ClientRow);
@@ -121,7 +138,7 @@ export async function updateClient(organizationId: string, clientId: string, inp
   const updateWith = (tier: (typeof CLIENT_TIERS)[number]) => supabase
     .from("clients")
     .update({
-      ...toClientPayload(input, tier.invoiceDetails),
+      ...toClientPayload(input, tier.invoiceDetails, tier.rowColor),
       updated_by: userId,
     })
     .eq("id", clientId)
@@ -130,8 +147,7 @@ export async function updateClient(organizationId: string, clientId: string, inp
     .select(tier.select)
     .single();
 
-  let { data, error } = await updateWith(CLIENT_TIERS[0]);
-  if (error && isMissingInvoiceDetailsColumnError(error)) ({ data, error } = await updateWith(CLIENT_TIERS[1]));
+  const { data, error } = await withClientTiers(updateWith);
 
   if (error) throw new Error(`Unable to update company: ${error.message}`);
   return toClient(data as unknown as ClientRow);
