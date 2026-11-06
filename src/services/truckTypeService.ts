@@ -1,4 +1,5 @@
 import { requireSupabaseClient } from "../lib/supabase";
+import { masterDataError } from "./masterDataErrors";
 import type { TruckType, TruckTypeInput, TruckTypeUpdateInput } from "../types/domain";
 
 type TruckTypeRow = {
@@ -61,7 +62,7 @@ export async function createTruckType(organizationId: string, input: TruckTypeIn
     .select(truckTypeSelect)
     .single();
 
-  if (error) throw new Error(`Unable to create truck type: ${error.message}`);
+  if (error) throw masterDataError("create", "truck type", error);
   return toTruckType(data as TruckTypeRow);
 }
 
@@ -77,7 +78,7 @@ export async function updateTruckType(organizationId: string, truckTypeId: strin
     .select(truckTypeSelect)
     .single();
 
-  if (error) throw new Error(`Unable to update truck type: ${error.message}`);
+  if (error) throw masterDataError("update", "truck type", error);
   return toTruckType(data as TruckTypeRow);
 }
 

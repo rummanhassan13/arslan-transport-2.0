@@ -2479,3 +2479,82 @@ html[data-sidebar-pinned="false"] .v2-topbar {
     animation-iteration-count: 1 !important;
   }
 }
+
+
+/* ─── Company colours in the shipment register ──────────────────────────
+   --company-color is set per row (see utils/companyColors.ts). Rows get a light
+   tint plus a solid stripe on the left; mixing with --surface keeps the tint soft
+   on both the light and dark themes. */
+.table-scroll tbody tr.company-tinted > td {
+  background: color-mix(in srgb, var(--company-color) 7%, var(--surface));
+}
+.table-scroll tbody tr.company-tinted > td:first-child {
+  box-shadow: inset 4px 0 0 var(--company-color);
+}
+.table-scroll tbody tr.company-tinted:hover > td {
+  background: color-mix(in srgb, var(--company-color) 14%, var(--surface));
+}
+.shipment-mobile-card.company-tinted {
+  background: color-mix(in srgb, var(--company-color) 6%, var(--surface));
+  border-left: 4px solid var(--company-color);
+}
+.company-name {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+.company-swatch {
+  background: var(--company-color, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--company-color, #000) 40%, transparent);
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+}
+.company-filter {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+.company-color-picker {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.company-color-option {
+  background: var(--company-color);
+  border: 2px solid transparent;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line);
+  cursor: pointer;
+  height: 26px;
+  padding: 0;
+  width: 26px;
+}
+.company-color-option[aria-pressed="true"] {
+  border-color: var(--surface);
+  box-shadow: 0 0 0 2px var(--company-color);
+}
+.company-color-auto {
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+}
+.company-color-auto[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--ink-2);
+  color: var(--ink);
+}
+.company-color-custom {
+  block-size: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  inline-size: 40px;
+  padding: 2px;
+}

@@ -1,5 +1,5 @@
 import { Printer } from "lucide-react";
-import type { Ref } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { StandaloneInvoiceTemplate, type StandaloneInvoiceLineItem } from "../templates/StandaloneInvoiceTemplate";
 import { useBusinessSettingsContext } from "../contexts/BusinessSettingsContext";
 import type { Client, Invoice, InvoiceItem, Shipment, ShipmentDriverAssignment, ShipmentExpense } from "../types/domain";
@@ -14,7 +14,61 @@ type InvoicePrintTemplateProps = {
   hideToolbar?: boolean;
   /** Current company record; supplies the invoice name, TRN and IBAN toggle. */
   client?: Client;
+  /** Shrink the whole page to fit the space it is given (no scrolling). Used by the preview modal. */
+  fitToContainer?: boolean;
 };
+
+// A4 at 96 dpi: 210mm x 297mm.
+const A4_WIDTH_PX = 794;
+const A4_HEIGHT_PX = 1123;
+
+/**
+ * Measures the preview area and returns the scale that fits the whole page (width and
+ * height) inside it. The page can grow taller than A4 when there are many charges, so
+ * its real height is measured too.
+ */
+function useFitScale(enabled: boolean) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const [fit, setFit] = useState<{ scale: number; pageHeight: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    const container = containerRef.current;
+    const page = pageRef.current;
+    if (!container || !page || typeof ResizeObserver === "undefined") return;
+
+    const measure = () => {
+      const style = window.getComputedStyle(container);
+      const gap = Number.parseFloat(style.rowGap) || 0;
+      const toolbarHeight = toolbarRef.current ? toolbarRef.current.offsetHeight + gap : 0;
+      const availableWidth = container.clientWidth - (Number.parseFloat(style.paddingLeft) || 0) - (Number.parseFloat(style.paddingRight) || 0);
+      const availableHeight =
+        container.clientHeight - (Number.parseFloat(style.paddingTop) || 0) - (Number.parseFloat(style.paddingBottom) || 0) - toolbarHeight;
+      // offsetHeight ignores the CSS transform, so this is the page's real (unscaled) height.
+      const pageHeight = Math.max(A4_HEIGHT_PX, page.firstElementChild instanceof HTMLElement ? page.firstElementChild.offsetHeight : 0);
+      if (availableWidth <= 0 || availableHeight <= 0) return;
+      const scale = Math.min(availableWidth / A4_WIDTH_PX, availableHeight / pageHeight, 1);
+      setFit((current) =>
+        current && Math.abs(current.scale - scale) < 0.001 && current.pageHeight === pageHeight ? current : { scale, pageHeight },
+      );
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    if (page.firstElementChild) observer.observe(page.firstElementChild);
+    return () => observer.disconnect();
+  }, [enabled]);
+
+  const wrapperStyle: CSSProperties | undefined =
+    enabled && fit
+      ? ({ "--actual-scale": fit.scale, height: `${fit.pageHeight * fit.scale}px` } as CSSProperties)
+      : undefined;
+
+  return { containerRef, toolbarRef, pageRef, wrapperStyle };
+}
 
 type DriverDetail = {
   driverName: string;
@@ -112,9 +166,18 @@ function shipmentDriverDetails(shipment: Shipment, invoiceRecord?: Invoice, item
   return sources.find((details) => details.length > 0) ?? [];
 }
 
-function hasDriverDetails(description: string) {
-  const normalized = description.toLowerCase();
-  return normalized.includes("driver") && (normalized.includes("truck no") || normalized.includes("vehicle"));
+// Lines of driver/waybill text that older invoices (and demo mode) saved inside the
+// trip line, e.g. "Driver 1: X", "Truck No: Y", "Vehicle Type: Z", "WAYBILL NO: W".
+const EMBEDDED_DRIVER_LINE = /^\s*(driver(\s+\d+)?(\s+name)?|truck\s*no|vehicle\s*type|type\s+of\s+vehicle|waybill\s*no)\s*:/i;
+
+/** The trip line shows only the route; driver details now print in their own row at the bottom. */
+function stripDriverDetails(description: string) {
+  return description
+    .split("\n")
+    .filter((line) => !EMBEDDED_DRIVER_LINE.test(line))
+    .join("\n")
+    .replace(/\n\s*\n(\s*\n)+/g, "\n\n")
+    .trim();
 }
 
 function formatDriverDetails(details: DriverDetail[]) {
@@ -128,11 +191,11 @@ function formatDriverDetails(details: DriverDetail[]) {
   }).join("\n\n");
 }
 
-function withDriverDetails(description: string, details: DriverDetail[], waybillNumber = "") {
-  let result = description.trim();
-  if (details.length && !hasDriverDetails(result)) result = `${result}\n\n${formatDriverDetails(details)}`;
-  if (waybillNumber && !/waybill/i.test(result)) result = `${result}\nWAYBILL NO: ${waybillNumber}`;
-  return result;
+/** Driver name, truck number, vehicle type and waybill, printed as the last row. */
+function driverDetailsRow(details: DriverDetail[], waybillNumber = ""): StandaloneInvoiceLineItem | null {
+  const lines = [details.length ? formatDriverDetails(details) : "", waybillNumber ? `WAYBILL NO: ${waybillNumber}` : ""].filter(Boolean);
+  if (!lines.length) return null;
+  return { description: lines.join("\n"), unitPrice: 0, amount: 0, detailOnly: true };
 }
 
 function expenseDescription(item: InvoiceItem) {
@@ -154,30 +217,35 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
   const activeExpenseIds = new Set(activeExpenses.map(e => e.id));
 
   const resolvedRows: StandaloneInvoiceLineItem[] = [];
-  
+  // Driver details are collected here and printed once, after all charges.
+  let driverDetails: DriverDetail[];
+
   // Transport Rows
   if (invoiceRecord) {
     const transportItems = invoiceItems.filter(item => item.itemType === "transport");
     if (transportItems.length > 0) {
+      driverDetails = shipmentDriverDetails(shipment, invoiceRecord, transportItems[0]);
       transportItems.forEach(item => {
         resolvedRows.push({
-          description: withDriverDetails(item.description || defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord, item), waybillNumber),
+          description: stripDriverDetails(item.description || "") || defaultTransportDescription,
           unitPrice: item.unitPrice || item.amount,
           amount: item.amount,
         });
       });
     } else {
       // Legacy fallback
+      driverDetails = shipmentDriverDetails(shipment, invoiceRecord);
       resolvedRows.push({
-        description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment, invoiceRecord), waybillNumber),
+        description: defaultTransportDescription,
         unitPrice: transportAmount,
         amount: transportAmount,
       });
     }
   } else {
     // Dynamic generation when no invoiceRecord exists
+    driverDetails = shipmentDriverDetails(shipment);
     resolvedRows.push({
-      description: withDriverDetails(defaultTransportDescription, shipmentDriverDetails(shipment), waybillNumber),
+      description: defaultTransportDescription,
       unitPrice: transportAmount,
       amount: transportAmount,
     });
@@ -250,6 +318,9 @@ function buildInvoiceRows(shipment: Shipment, invoiceRecord?: Invoice, invoiceIt
     }
   }
 
+  const driverRow = driverDetailsRow(driverDetails, waybillNumber);
+  if (driverRow) resolvedRows.push(driverRow);
+
   return resolvedRows;
 }
 
@@ -261,8 +332,10 @@ export function InvoicePrintTemplate({
   documentRef,
   hideToolbar = false,
   client,
+  fitToContainer = false,
 }: InvoicePrintTemplateProps) {
   const { company } = useBusinessSettingsContext();
+  const { containerRef, toolbarRef, pageRef, wrapperStyle } = useFitScale(fitToContainer);
   const invoiceNumber = formatInvoiceNo(invoiceRecord?.invoiceNumber || shipment.invoice);
   const invoiceDate = formatTemplateDate(invoiceRecord?.issueDate || shipment.date);
   const clientName =
@@ -275,9 +348,9 @@ export function InvoicePrintTemplate({
   const rows = buildInvoiceRows(shipment, invoiceRecord, invoiceItems, shipmentExpenses, shipment.waybillNumber?.trim() || "");
 
   return (
-    <div className="invoice-print-preview">
+    <div className={`invoice-print-preview${fitToContainer ? " is-fit" : ""}`} ref={containerRef}>
       {!hideToolbar && (
-        <div className="invoice-print-toolbar">
+        <div className="invoice-print-toolbar" ref={toolbarRef}>
           <button className="primary-btn" type="button" onClick={() => window.print()}>
             <Printer size={16} />
             Print invoice
@@ -285,7 +358,7 @@ export function InvoicePrintTemplate({
         </div>
       )}
 
-      <div className="invoice-scale-wrapper">
+      <div className="invoice-scale-wrapper" ref={pageRef} style={wrapperStyle}>
         <StandaloneInvoiceTemplate
           data={{
             invoiceNumber,

@@ -1,4 +1,5 @@
 import { requireSupabaseClient } from "../lib/supabase";
+import { masterDataError } from "./masterDataErrors";
 import type { Driver, DriverInput, DriverUpdateInput } from "../types/domain";
 
 type DriverRow = {
@@ -83,7 +84,7 @@ export async function createDriver(organizationId: string, input: DriverInput): 
     .select(driverSelect)
     .single();
 
-  if (error) throw new Error(`Unable to create driver: ${error.message}`);
+  if (error) throw masterDataError("create", "driver", error);
   return toDriver(data as DriverRow);
 }
 
@@ -103,7 +104,7 @@ export async function updateDriver(organizationId: string, driverId: string, inp
     .select(driverSelect)
     .single();
 
-  if (error) throw new Error(`Unable to update driver: ${error.message}`);
+  if (error) throw masterDataError("update", "driver", error);
   return toDriver(data as DriverRow);
 }
 

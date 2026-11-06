@@ -7,6 +7,8 @@ export type StandaloneInvoiceLineItem = {
   description: string;
   unitPrice: number;
   amount: number;
+  /** Text-only row (e.g. driver details): the price and amount cells are left blank. */
+  detailOnly?: boolean;
 };
 
 export type StandaloneInvoiceTemplateData = {
@@ -42,7 +44,7 @@ function stripSalutation(name: string) {
 
 /** Pure A4 invoice markup: no modal, toolbar, print command, or data access. */
 export function StandaloneInvoiceTemplate({ data, documentRef }: StandaloneInvoiceTemplateProps) {
-  const totalAmount = data.rows.reduce((sum, row) => sum + row.amount, 0);
+  const totalAmount = data.rows.reduce((sum, row) => sum + (row.detailOnly ? 0 : row.amount), 0);
 
   return (
     <article className="invoice-print-document" aria-label={`Tax invoice ${data.invoiceNumber}`} ref={documentRef}>
@@ -120,8 +122,8 @@ export function StandaloneInvoiceTemplate({ data, documentRef }: StandaloneInvoi
                     </div>
                   ))}
                 </td>
-                <td className="num">{formatAmount(row.unitPrice)}</td>
-                <td className="num">{formatAmount(row.amount)}</td>
+                <td className="num">{row.detailOnly ? "" : formatAmount(row.unitPrice)}</td>
+                <td className="num">{row.detailOnly ? "" : formatAmount(row.amount)}</td>
               </tr>
             ))}
           </tbody>

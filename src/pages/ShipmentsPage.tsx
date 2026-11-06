@@ -8,6 +8,7 @@ import { formatDate, money } from "../utils/formatters";
 import { EmptyState, KpiGrid, PageTitle, SkeletonTable, StatusBadge } from "../components/ui";
 import { SETTABLE_INVOICE_STATUSES, invoiceStatusLabel } from "../utils/statusDerivation";
 import { canManageInvoices, canManagePayments, canManageShipments } from "../utils/permissions";
+import { companyColor, companyColorStyle } from "../utils/companyColors";
 
 
 export function ShipmentsPage({
@@ -189,6 +190,13 @@ function ShipmentTable({
 
   const activeClients = clients.filter((c) => c.status === "active");
 
+  // Each company's rows share one colour (chosen in the company form, or automatic).
+  const colorForRow = (row: Shipment) => {
+    const client = clients.find((c) => c.id === row.clientId) ?? clients.find((c) => c.name === row.customer);
+    return companyColor(client, row.customer);
+  };
+  const selectedClient = clients.find((c) => c.id === customerFilter);
+
   const confirmDelete = (row: Shipment) => {
     if (window.confirm(`Are you sure you want to delete shipment ${row.invoice || ""} (Driver: ${row.driverName})?`)) {
       void deleteShipment(row.id);
@@ -230,10 +238,15 @@ function ShipmentTable({
             />
           </div>
 
-          <select className="compact-select" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
-            <option value="">All Companies</option>
-            {activeClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div className="company-filter">
+            {selectedClient && (
+              <span className="company-swatch" style={companyColorStyle(companyColor(selectedClient))} aria-hidden="true" />
+            )}
+            <select className="compact-select" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
+              <option value="">All Companies</option>
+              {activeClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
 
           {activeCount > 0 && (
             <button className="icon-btn text-ink-3 hover:text-ink" onClick={clearAll} title="Clear search and filter">
@@ -244,7 +257,7 @@ function ShipmentTable({
       </div>
       <div className="shipment-mobile-list">
         {shipments.map((row) => (
-          <article key={row.id} className="shipment-mobile-card" onClick={() => openSummary(row)}>
+          <article key={row.id} className="shipment-mobile-card company-tinted" style={companyColorStyle(colorForRow(row))} onClick={() => openSummary(row)}>
             <div className="shipment-mobile-card-header">
               <div className="shipment-mobile-card-reference">
                 <strong>{row.invoice}</strong>
@@ -305,7 +318,7 @@ function ShipmentTable({
           </thead>
           <tbody>
             {shipments.map((row) => (
-              <tr key={row.id} onClick={() => openSummary(row)} className="cursor-pointer">
+              <tr key={row.id} onClick={() => openSummary(row)} className="cursor-pointer company-tinted" style={companyColorStyle(colorForRow(row))}>
                 <td>
                   <div className="flex flex-col gap-1">
                     <span className="invoice-cell">{row.invoice}</span>
@@ -314,7 +327,7 @@ function ShipmentTable({
                 </td>
                 <td>
                   <div className="flex flex-col gap-1.5">
-                    <span className="font-semibold text-ink">{row.customer}</span>
+                    <span className="font-semibold text-ink company-name"><span className="company-swatch" aria-hidden="true" />{row.customer}</span>
                     <span className="route-cell">{row.loadingPoint} <MoveRight size={11} /> {row.destination}</span>
                   </div>
                 </td>

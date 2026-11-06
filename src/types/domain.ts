@@ -133,6 +133,8 @@ export type Client = {
   invoiceCompanyName: string | null;
   trn: string | null;
   showIbanOnInvoice: boolean;
+  /** Shipment register row colour (#RRGGBB); null = automatic. */
+  rowColor?: string | null;
   status: "active" | "inactive";
   createdAt: string;
   updatedAt: string;
@@ -149,6 +151,7 @@ export type ClientInput = {
   invoiceCompanyName?: string | null;
   trn?: string | null;
   showIbanOnInvoice?: boolean;
+  rowColor?: string | null;
   status?: "active" | "inactive";
 };
 

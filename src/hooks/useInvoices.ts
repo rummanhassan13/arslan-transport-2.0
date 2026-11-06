@@ -7,6 +7,7 @@ import {
   listInvoices,
   softDeleteInvoice,
   transitionInvoiceLifecycle,
+  updateInvoice,
 } from "../services/invoiceService";
 import type { Invoice, InvoiceInput, InvoiceItem, InvoiceRecordStatus, Shipment, ShipmentExpense } from "../types/domain";
 import { calculateShipmentFinancials, getExpenseClientBillAmount } from "../utils/calculations";
@@ -357,6 +358,39 @@ export function useInvoices(shipments: Shipment[], expenses: ShipmentExpense[] =
     return updated;
   }, [organizationId]);
 
+  /**
+   * Changes only the date printed on the invoice (issue_date). The due date, totals,
+   * line items, number and status are left exactly as they are, so overdue checks and
+   * payment balances are not affected.
+   */
+  // Takes the invoice itself (not an id) so it also works right after the invoice was
+  // generated, before it has reached this hook's state.
+  const updateInvoiceDate = useCallback(async (target: Invoice, issueDate: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(issueDate) || Number.isNaN(new Date(`${issueDate}T00:00:00`).getTime())) {
+      throw new Error("Invoice date is not a valid date.");
+    }
+    if (target.status === "cancelled") throw new Error("A cancelled invoice's date cannot be changed.");
+    const invoiceId = target.id;
+    if (target.issueDate === issueDate) return target;
+
+    if (env.demoMode) {
+      let updated: Invoice = { ...target, issueDate, updatedAt: nowTimestamp() };
+      setInvoices((current) => current.map((invoice) => {
+        if (invoice.id !== invoiceId) return invoice;
+        updated = { ...invoice, issueDate, updatedAt: nowTimestamp() };
+        return updated;
+      }));
+      notifyGlobalRefresh("invoices");
+      return updated;
+    }
+
+    if (!organizationId) throw new Error("No active organization is available for updating invoices.");
+    const updated = await updateInvoice(organizationId, invoiceId, { issueDate });
+    setInvoices((current) => current.map((invoice) => (invoice.id === invoiceId ? updated : invoice)));
+    notifyGlobalRefresh("invoices");
+    return updated;
+  }, [organizationId]);
+
   const deleteInvoice = useCallback(async (invoiceId: string) => {
     if (env.demoMode) {
       setInvoices((current) => current.map((invoice) => invoice.id === invoiceId
@@ -390,6 +424,7 @@ export function useInvoices(shipments: Shipment[], expenses: ShipmentExpense[] =
     createInvoice,
     createInvoiceForShipment,
     updateInvoiceStatus,
+    updateInvoiceDate,
     deleteInvoice,
   };
 }
